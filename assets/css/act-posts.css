@@ -1,0 +1,155 @@
+/* Basic styling for the controls */
+.act-posts-grid-controls {
+    display: flex;
+    justify-content: space-between; /* Puts category left, sort right */
+    align-items: center;
+    margin-bottom: 20px;
+    padding: 10px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.act-posts-category-filter,
+.act-posts-sort-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.act-posts-grid-controls label {
+    font-weight: bold;
+    margin-right: 5px;
+}
+
+.act-posts-grid-controls select {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background-color: #fff;
+    cursor: pointer;
+}
+
+/* Responsive Grid Container (Flexbox) */
+.act-posts-grid-container {
+    display: flex;
+    flex-wrap: wrap; /* Allows panels to wrap to the next line */
+    justify-content: center; /* Centers panels horizontally, or use space-between/around */
+    gap: 20px; /* Space between grid panels */
+    padding: 10px;
+}
+
+/* --- Outer Grid Container (from yesterday's suggestion) --- */
+/*
+  Assuming .act-posts-grid-container is the parent that uses
+  display: flex; flex-wrap: wrap; justify-content: center; etc.
+  This CSS defines how each 'post-panel' behaves within that grid.
+*/
+
+/* --- Outer Grid Container (from yesterday's suggestion) --- */
+/*
+  Assuming .act-posts-grid-container is the parent that uses
+  display: flex; flex-wrap: wrap; justify-content: center; etc.
+  This CSS defines how each 'post-panel' behaves within that grid.
+*/
+
+/* --- Individual Post Panel (Combined) --- */
+.act-posts-grid-container .post-panel {
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    box-sizing: border-box; /* Include padding and border in the element's total width and height */
+
+    flex: 1 1 280px; /* flex-grow, flex-shrink, flex-basis */
+    min-width: 280px; /* Minimum width of a panel */
+    max-width: 380px; /* Maximum width of a panel */
+    margin: 10px; /* Add margin between panels in the grid */
+}
+
+/* --- Make the entire panel clickable (from today's suggestion) --- */
+.post-panel a {
+    text-decoration: none;
+    color: inherit;
+    display: block;
+}
+
+/* --- Inner Content Container (Modified for Float Layout) --- */
+.post-panel .panel-content {
+    /* Removed display: flex and align-items: flex-start; */
+    padding: 15px; /* Padding for the content inside the panel */
+    overflow: hidden; /* Important: Creates a new block formatting context, clearing floats within it */
+}
+
+/* --- Featured Image Container (Modified for Float Layout) --- */
+.post-panel .post-image-container {
+    float: left; /* Make the image container float to the left */
+    width: 45%; /* Occupy no more than half the width when present */
+    max-width: 150px; /* Optional: set a max width for the image container in pixels */
+    margin-right: 15px; /* Space between image and wrapping text */
+    margin-bottom: 10px; /* Space below image, especially if text wraps below it */
+    overflow: hidden; /* Ensure image doesn't break out */
+}
+
+/* --- Actual Featured Image Styling --- */
+.post-panel .post-featured-image {
+    width: 100%; /* Make image fill its container */
+    height: auto; /* Maintain aspect ratio */
+    display: block; /* Remove extra space below image */
+    border-radius: 4px;
+}
+
+/* --- Text Content Container (No longer a flex item, naturally flows) --- */
+.post-panel .post-text-content {
+    /* Removed flex-grow: 1; as it's no longer a flex item */
+    /* This div will now naturally occupy the space next to the float or full width */
+}
+
+/* --- Post Title --- */
+.post-panel .post-title {
+    margin-top: 0;
+    margin-bottom: 5px;
+    font-size: 1.2em;
+    line-height: 1.3;
+}
+
+.post-panel .post-title a {
+    text-decoration: none;
+    color: #333;
+}
+
+.post-panel .post-title a:hover {
+    color: #0073aa;
+}
+
+/* --- Post Meta (Date and Author) --- */
+.post-panel .post-meta {
+    font-size: 0.85em;
+    color: #666;
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+
+.post-panel .post-author {
+    margin-left: 5px;
+}
+
+/* --- Post Summary (Excerpt/Trimmed Content) --- */
+.post-panel .post-summary p {
+    font-size: 0.95em;
+    line-height: 1.5;
+    color: #333;
+    margin-bottom: 0;
+}/* Loading spinner styles */
+.act-posts-loading-spinner,
+.act-posts-no-results {
+    font-style: italic;
+    color: #777;
+    margin-top: 20px;
+}
+
+/* Hide the trigger visually, but keep it in flow for observer */
+.act-posts-infinite-scroll-trigger {
+    height: 1px; /* Minimal height to be observed */
+    visibility: hidden; /* Hide it from user */
+    margin-top: 20px; /* Add some space if needed */
+    pointer-events: none; /* Ensure it doesn't interfere with clicks */
+}

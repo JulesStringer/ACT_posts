@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>ACT load documentation</title>
+        <meta charset="UTF-8">
+        <style>
+            body{
+                margin: auto; /* Center horizontally */
+                max-width: 700px; /* Set maximum width */
+                width: 90%; /* Optional: Allow some flexibility on smaller screens */
+                flex: 1; /* Allows the main content to expand to fill available space */
+            }
+            table {
+                border-collapse: collapse; /* Collapse borders for single-line effect */
+                border: 1px solid #ccc; /* Add a border to the table itself */
+            }
+
+            th, td {
+                border: 1px solid #ccc; /* Add borders to table cells (th and td) */
+                padding: 8px; /* Add some padding within cells */
+                text-align: left; /* Default text alignment to the left */
+            }
+
+        </style>
+    </head>
+    <body>
+        <h1>ACT Posts</h1>
+        <p>This plugin provides a shortcode which can be configured to either:</p>
+        <ul>
+            <li>Display all posts together with controls to:
+                <ul>
+                    <li>select which category is displayed (or All)</li>
+                    <li>control the sort order by:
+                        <ul>
+                            <li>Date (newset first)</li>
+                            <li>Date (oldest first)</li>
+                            <li>Author</li>
+                        </ul>
+                    </li>
+                </ul> 
+            </li>
+            <li>Display all posts relating to a preconfigured category in descending date order</li>
+        </ul>
+        <h2>Displaying posts for a single category</h2>
+        <p>It is intended that each activity page will have a posts section for posts related to that category.
+            The appropriate category for the activity page should be set in the category argument.
+            The shortcode will then display all posts in that category in descending date order.
+            As this is the most common use case the default arguments are designed to match this case.0
+        </p>
+        <pre>
+            <code>
+                [ACT_posts category="category-slug"]
+            </code>
+        </pre>
+        <h2>Displaying all posts</h2>
+        <p>This is the use case for the News page, which numerically is the less used case.
+            As category filter and sort order selections need to be shown on this page, these need to be specified as parameters.
+        </p>
+        <pre>
+            <code>
+                [ACT_posts show_category_filter="true" show_sort_order="true"]
+            </code>
+        </pre>
+        <h3>Current categories</h3>
+        <p><a href="https://sites.stringerhj.co.uk/ACT/WP_plugins/category_mapping.xlsx" 
+            target="_blank" >Current categories converted from legacy posts are shown in this spreadsheet</a></p>
+        <h2>Full set of short code parameters</h2>
+        <p>The full set of short code parameters are given in the following table:</p>
+        <table>
+            <tr><th>Parameter</th><th>Description</th></tr>
+            <tr><td>category</td><td>Category ID or slug</td></tr>
+            <tr><td>sort_by</td><td>Choice of field to sort by - options are date and author</td></tr>
+            <tr><td>sort_order</td><td>Choice of sort order - <ul><li>desc - descending</li><li>asc - ascending</li></ul></td></tr>
+            <tr><td>excerpt_length</td><td>Default character limit for fallback excerpt</td></tr>
+            <tr><td>show_category_filter</td><td>true or false to determine if category filter is shown</td></tr>
+            <tr><td>show_sort_controls</td><td>true or false to determine if sort controls should be shown</td></tr>
+        </table>
+    </body>
+</html>
