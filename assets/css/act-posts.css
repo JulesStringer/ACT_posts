@@ -1,13 +1,27 @@
 /* Basic styling for the controls */
+/*
 .act-posts-grid-controls {
     display: flex;
-    justify-content: space-between; /* Puts category left, sort right */
+    flex-wrap: wrap; 
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 20px;
+    padding: 10px 0;
+    border-bottom: 1px solid #eee;
+    gap: 15px; 
+}*/
+/* Basic styling for the controls */
+/*
+.act-posts-grid-controls {
+    display: flex;
+    justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
     padding: 10px 0;
     border-bottom: 1px solid #eee;
 }
-
+*/
+/*
 .act-posts-category-filter,
 .act-posts-sort-controls {
     display: flex;
@@ -27,7 +41,7 @@
     background-color: #fff;
     cursor: pointer;
 }
-
+*/
 /* Responsive Grid Container (Flexbox) */
 .act-posts-grid-container {
     display: flex;
@@ -36,6 +50,25 @@
     gap: 20px; /* Space between grid panels */
     padding: 10px;
 }
+/* Search Box Group */
+/*
+.act-posts-search-box {
+    flex: 1 1 auto;
+    min-width: 250px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+*/
+/*
+.act-posts-search-box input[type="text"] {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    width: 100%; 
+    box-sizing: border-box; 
+}
+*/
 
 /* --- Outer Grid Container (from yesterday's suggestion) --- */
 /*

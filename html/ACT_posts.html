@@ -49,7 +49,7 @@
         </p>
         <pre>
             <code>
-                [ACT_posts category="category-slug"]
+                [ACT_posts category="category-slug1,category-slug2"]
             </code>
         </pre>
         <h2>Displaying all posts</h2>
@@ -58,9 +58,19 @@
         </p>
         <pre>
             <code>
-                [ACT_posts show_category_filter="true" show_sort_order="true"]
+                [act_posts]
             </code>
         </pre>
+        <h2>Selecting categories via the page url</h2>
+        <p>One or more categories can be passed as a page parameter in the category= parameter on the command line,
+            example:
+        </p>
+        <code>
+            <pre>
+                https://test.act.stringerhj.co.uk/news/?category=carbon-cutters,energy-and-built-environment
+            </pre>
+        </code>
+        <p>Here both the carbon-cutters and energy-and-built-environment categories will be selected</p>
         <h3>Current categories</h3>
         <p><a href="https://sites.stringerhj.co.uk/ACT/WP_plugins/category_mapping.xlsx" 
             target="_blank" >Current categories converted from legacy posts are shown in this spreadsheet</a></p>
@@ -68,12 +78,10 @@
         <p>The full set of short code parameters are given in the following table:</p>
         <table>
             <tr><th>Parameter</th><th>Description</th></tr>
-            <tr><td>category</td><td>Category ID or slug</td></tr>
+            <tr><td>category</td><td>Category ID,slug, or name. Can also be a comma separated list of these</td></tr>
             <tr><td>sort_by</td><td>Choice of field to sort by - options are date and author</td></tr>
             <tr><td>sort_order</td><td>Choice of sort order - <ul><li>desc - descending</li><li>asc - ascending</li></ul></td></tr>
             <tr><td>excerpt_length</td><td>Default character limit for fallback excerpt</td></tr>
-            <tr><td>show_category_filter</td><td>true or false to determine if category filter is shown</td></tr>
-            <tr><td>show_sort_controls</td><td>true or false to determine if sort controls should be shown</td></tr>
         </table>
     </body>
 </html>
