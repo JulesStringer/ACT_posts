@@ -40,6 +40,12 @@
                 </ul> 
             </li>
             <li>Display all posts relating to a preconfigured category in descending date order</li>
+            <li>Display custom post types, with special supports for:
+                <ul>
+                    <li>Team members - without control panel</li>
+                    <li>Events - with reference date</li>
+                </ul>
+            </li>
         </ul>
         <h2>Displaying posts for a single category</h2>
         <p>It is intended that each activity page will have a posts section for posts related to that category.
@@ -74,6 +80,33 @@
         <h3>Current categories</h3>
         <p><a href="https://sites.stringerhj.co.uk/ACT/WP_plugins/category_mapping.xlsx" 
             target="_blank" >Current categories converted from legacy posts are shown in this spreadsheet</a></p>
+        <h2>Displaying custom post types</h2>
+        <p>Custom post types can be used to display things like team members, events, FAQs and a host of other things.
+            at its simplest this is just a matter of setting the post_type attribute, as below for FAQs.
+        </p>
+        <pre>
+            <code>
+                [act_posts post_type=faq]
+            </code>
+        </pre>
+        <p>For some post_types the control panel that appears at the top of the page is irrelevant, and so should be removed, 
+            as is the case with team members
+        </p>
+        <pre>
+            <code>
+                [act_posts post_type=team has_controls=no]
+            </code>
+        </pre>
+        <h2>Events</h2>
+        <p>Events are defined as a custom post type with attributes which handle date and other special handling. 
+            These are still handled as posts but have a different index which is date sorted and constructed relative to a reference date.
+            For events the control panel consists of the reference date. The shortcode for events is simply:
+        </p>
+        <pre>
+            <code>
+                [act_posts post_type=event]
+            </code>
+        </pre>
         <h2>Full set of short code parameters</h2>
         <p>The full set of short code parameters are given in the following table:</p>
         <table>
@@ -82,6 +115,9 @@
             <tr><td>sort_by</td><td>Choice of field to sort by - options are date and author</td></tr>
             <tr><td>sort_order</td><td>Choice of sort order - <ul><li>desc - descending</li><li>asc - ascending</li></ul></td></tr>
             <tr><td>excerpt_length</td><td>Default character limit for fallback excerpt</td></tr>
+            <tr><td>post_type</td><td>Defaults to posts, can be team, event or any custom post type which is handled like a post</td></tr>
+            <tr><td>has_controls</td><td>Determines if a control panel is displayed before the posts</td></tr>
+            <tr><td>window_start</td><td>Reference date for events (not normally set)</td></tr>
         </table>
     </body>
 </html>

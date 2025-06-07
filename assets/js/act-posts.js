@@ -2,25 +2,26 @@
 document.addEventListener('DOMContentLoaded', async function() {
     // Get localized data from PHP
     const restUrl = actPostsData.rest_url;
-    const postsPerPage = actPostsData.posts_per_page; // How many to fetch initially (e.g., 100)
     const initialCategoryIdsFromPHP = actPostsData.initial_category_ids; // Array of IDs
     const initialSortByFromPHP = actPostsData.initial_sort_by;
     const initialSortOrderFromPHP = actPostsData.initial_sort_order;
     const excerptLength = actPostsData.excerpt_length;
     const siteRestUrl = actPostsData.site_rest_url; // Base REST URL for other endpoints like categories
+    const posttype = actPostsData.post_type;
+    const initial_window_start = actPostsData.initial_window_start;
+console.log('initial_window_start: ' , initial_window_start);
 console.log('restUrl:', restUrl);
+console.log('posttype: ', posttype);
     // DOM Elements
     const postGridContainer = document.getElementById('act-posts-grid-container');
     const categorySelect = document.getElementById('act-posts-category-select');
     console.log('categorySelect:', categorySelect);
     const categoryCountSpans = document.querySelectorAll('.act-posts-category-count');
-    const categoryCheckboxes = document.querySelectorAll('.act-posts-category-checkbox');
     const searchInput = document.getElementById('act-posts-search-input');
     const sortSelect = document.getElementById('act-posts-sort-select');
-    const infiniteScrollTrigger = document.getElementById('act-posts-infinite-scroll-trigger');
-    const loadingSpinner = document.getElementById('act-posts-loading-spinner');
     const noResultsMessage = document.getElementById('act-posts-no-results');
     const selectedCount = document.getElementById('act-posts-selected');
+    const eventWindowStart = document.getElementById('event-window-start');
 
     // state variables
     //let page = 1;
@@ -99,6 +100,9 @@ console.log('restUrl:', restUrl);
             const [by, order] = selected.split('_');
             return { by, order };
         } else {
+            if ( posttype === 'event' ){
+                return { by: 'from', order: 'asc' };
+            }
             return { by: 'title', order: 'asc'};
         }
     }
@@ -136,6 +140,105 @@ console.log('restUrl:', restUrl);
             r = r.replace(/\b\w/g, char => char.toUpperCase());
         }
         return r;
+    }
+    function postpanelhtml(postLink, featuredImageHtml, postTitle, postDate, authorName, summaryContent){
+        panelHtmlString = `
+            <div class="post-panel">
+                <a href="${postLink}">
+                    <div class="panel-content">
+                        ${featuredImageHtml}
+                        <div class="post-text-content">
+                            <h3 class="post-title">${postTitle}</h3>
+                            <p class="post-meta">
+                                <span class="post-date">${postDate}</span>
+                                <span class="post-author">${authorName}</span>
+                            </p>
+                            <div class="post-summary">
+                                <p>${summaryContent}</p>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        `;
+        return panelHtmlString;
+    }
+    function teampanelhtml(postLink, featuredImageHtml, postTitle, summaryContent){
+        panelHtmlString = `
+            <div class="post-panel">
+                <a href="${postLink}">
+                    <div class="panel-content">
+                        ${featuredImageHtml}
+                        <div class="post-text-content">
+                            <h3 class="post-title">${postTitle}</h3>
+                            <div class="post-summary">
+                                <p>${summaryContent}</p>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        `;
+        return panelHtmlString;
+    }
+    function formatHHMM(d){
+        let h = d.getHours();
+        let m = d.getMinutes();
+        let timeline = '';
+        timeline += h + ':';
+        if ( m < 10 ) timeline += '0';
+        timeline += m;
+        return timeline;
+    }
+    function formatDate(d){
+        let now = new Date();
+        let options = { weekday: 'long', month: 'long', day: 'numeric' };
+        if ( now.getFullYear() != d.getFullYear()){
+            options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+        }
+        return d.toLocaleString('EN-GB', options);
+    }
+    function formDate(str){
+        let dstr = str.replace(' ','T');
+        return new Date(dstr);
+    }
+    function eventpanelhtml(postLink, featuredImageHtml, postTitle, summaryContent, acf){
+        timeline = '';
+        let from = formDate(acf.from);
+        let to = formDate(acf.to);
+        timeline += formatHHMM(from) + ' to ' + formatHHMM(to);
+        timeline += ' ' + formatDate(from);
+        if ( acf.interval_type != 'none'){
+            timeline += ' and every ' + acf.interval_value + ' ' + acf.interval_type;
+            if ( acf.interval_value > 1 ){
+                timeline += 's';
+            }
+            if ( acf.interval_enddate ){
+                let d = formDate(acf.interval_enddate);
+                timeline += ' until ' + formatDate(d);
+            }
+        }
+        let location = acf.location;
+        if ( acf.postcode ){
+            location += ' ' + acf.postcode;
+        }
+        panelHtmlString = `
+            <div class="post-panel">
+                <a href="${postLink}">
+                    <div class="panel-content">
+                        <p>${timeline}</p>
+                        <div class="post-text-content">
+                            <h3 class="post-title">${postTitle}</h3>
+                            <p>${location}</p>
+                            <div class="post-summary">
+                                <p>${summaryContent}</p>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        `;
+        return panelHtmlString;
     }
     /*
      * Creates an HTML string for a single post panel based on a WordPress REST API post object.
@@ -177,7 +280,7 @@ console.log('restUrl:', restUrl);
             const imageAlt = post._embedded['wp:featuredmedia'][0].alt_text || postTitle; // Fallback alt text for accessibility
             featuredImageHtml = `
                 <div class="post-image-container">
-                    <img src="${imageUrl}" alt="${imageAlt}" class="post-featured-image">
+                    <img src="${imageUrl}" alt="${imageAlt}" class="post-featured-image" loading="lazy">
                 </div>
             `;
         }
@@ -215,42 +318,17 @@ console.log('restUrl:', restUrl);
         // --- Construct the complete HTML string using template literals ---
         let panelHtmlString;
         //console.log('post.type: ', post.type)
-        if ( post.type !== 'team'){
-            panelHtmlString = `
-                <div class="post-panel">
-                    <a href="${postLink}">
-                        <div class="panel-content">
-                            ${featuredImageHtml}
-                            <div class="post-text-content">
-                                <h3 class="post-title">${postTitle}</h3>
-                                <p class="post-meta">
-                                    <span class="post-date">${postDate}</span>
-                                    <span class="post-author">${authorName}</span>
-                                </p>
-                                <div class="post-summary">
-                                    <p>${summaryContent}</p>
-                                </div>
-                            </div>
-                        </div>
-                    </a>
-                </div>
-            `;
+        if ( posttype === 'posts'){
+            panelHtmlString = postpanelhtml(postLink, featuredImageHtml, postTitle, postDate, authorName, summaryContent)
+        } else if ( posttype === 'team') {
+            panelHtmlString = teampanelhtml(postLink, featuredImageHtml, postTitle, summaryContent);
+        } else if ( posttype === 'event') {
+            //console.log('posttype: ' + posttype);
+            panelHtmlString = eventpanelhtml(postLink, featuredImageHtml, postTitle, summaryContent, post.acf);
+            //console.log('panelHtmlString: ' + panelHtmlString);
         } else {
-            panelHtmlString = `
-                <div class="post-panel">
-                    <a href="${postLink}">
-                        <div class="panel-content">
-                            ${featuredImageHtml}
-                            <div class="post-text-content">
-                                <h3 class="post-title">${postTitle}</h3>
-                                <div class="post-summary">
-                                    <p>${summaryContent}</p>
-                                </div>
-                            </div>
-                        </div>
-                    </a>
-                </div>
-            `;
+//            panelHtmlString = '<div class="post-panel"><p>Post type: "' + posttype + '" not recognised by ACT_posts plugin</p></div>';
+            panelHtmlString = postpanelhtml(postLink, featuredImageHtml, postTitle, postDate, authorName, summaryContent)
         }
         // --- Convert HTML string to a DOM element ---
         const tempContainer = document.createElement('div');
@@ -299,15 +377,32 @@ console.log('restUrl:', restUrl);
         }
     }
     // --- Function to build API URL for initial fetch ---
-    function buildInitialFetchApiUrl(page){
-        // We fetch *all* posts potentially, so no category/search filter here
+    function buildFetchApiUrl(page, posttype, ids){
+        // We fetch *all* posts potentially, so( no category/search filter here
         // The REST API default max is 100, if more posts exist, you might need a loop or
         // a custom endpoint. For <200 posts, 100 will get a good chunk.
         // For truly ALL posts, you'd need to loop based on X-WP-TotalPages
-        //return `${restUrl}?_fields=title,slug,excerpt,content,link,categories,_embedded&_embed=true&per_page=${postsPerPageInitialFetch}&page=1`;
-        return `${restUrl}?_embed=wp:featuredmedia,author&_fields=title,categories,date,excerpt,content,link,featured_media,author,type,_links,_embedded&per_page=${postsPerPage}&page=${page}`;
+        let r = restUrl + '?';
+        if ( ids ){
+            r += 'include=' + ids.join(',') + '&';
+        }
+        if ( posttype === 'posts' ){
+            r += '_embed=wp:featuredmedia,author&_fields=title,categories,date,excerpt,content,link,featured_media,author,_links,_embedded';
+        } else if ( posttype === 'team' ){
+            r += '_embed=wp:featuredmedia&_fields=title,date,excerpt,content,link,featured_media,_links,_embedded';
+        } else if ( posttype === 'event'){
+            r += '_embed=wp:featuredmedia,author&_fields=id,title,date,excerpt,content,link,featured_media,acf,_links,_embedded';
+        } else {
+//            console.log('buildFetchApiUrl incorrect posttype: ', posttype);
+            r += '_embed=wp:featuredmedia,author&_fields=title,categories,date,excerpt,content,link,featured_media,author,_links,_embedded';
+        }
+        r += '&per_page=20';
+        if ( !ids ){
+            r += '&page=' + page;
+        }
+        return r;
     }
-    console.log('Example API URL for initial fetch:', buildInitialFetchApiUrl(1));
+    console.log('Example API URL for initial fetch:', buildFetchApiUrl(1, posttype, null));
     /*
      * Update counts of each category in the categorySelect dropdown including the All Categories option
     */
@@ -413,6 +508,19 @@ console.log('restUrl:', restUrl);
                         aValue = a.title?.rendered || '';
                         bValue = b.title?.rendered || '';
                         break;
+                    case 'from':
+                        //console.log('a: ', a, ' b: ', b);
+                        if ( a.from ){
+                            aValue = a.from;
+                        } else if ( a.acf ){
+                            aValue = formDate(a.acf.from);
+                        }
+                        if ( b.from ){
+                            bValue = b.from;
+                        } else if ( b.acf ) {
+                            bValue = formDate(b.acf.from);
+                        }
+                        break;
                     default:
                         aValue = a[filter.sortBy];
                         bValue = b[filter.sortBy];
@@ -423,82 +531,14 @@ console.log('restUrl:', restUrl);
         return posts;
     }
     /*
-     * Filter posts based on selected categories and search input
+     *  build index for normal posts and any post type except events
     */
-    function filterPosts(posts, filter) {
-        let filteredPosts = filterCategory(posts, filter);
-
-        // Filter by search query
-        filteredPosts = filterSearch(filteredPosts, filter);
-        // Sort posts
-        filteredPosts = sortposts(filteredPosts, filter);
-        return filteredPosts;
-    }
-    /*
-     * Display posts that satisfy filter, sorted according to filter
-    */
-    function displayPosts(posts, filter) {
-        // Clear the post grid container
-        postGridContainer.innerHTML = '';
-        // Filter and sort posts
-        const filteredPosts = filterPosts(posts, filter);
-        console.log('Filtered posts count:', filteredPosts.length);
-        // If no posts match the filter, show a message
-        if (filteredPosts.length === 0) {
-            noResultsMessage.style.display = 'block';
-//           postGridContainer.style.display = 'none';
-            return;
-        } else {
-            noResultsMessage.style.display = 'none';
-//            postGridContainer.style.display = 'block'; // Show the grid container
-        }
-        // Create and append post panels to the grid container
-        filteredPosts.forEach(post => {
-            const postPanel = createPostPanel(post);
-            postGridContainer.appendChild(postPanel);
-        });
-    }
-    /*
-     * Fetch all posts filling allposts array first page should be rendered as soon as possible
-     * but rendering first page shouldn't impede fetching the rest of the posts.
-    */
-    async function fetchAllPosts() {
-        let page = 1;
-        let totalPages = 1; // Initialize total pages
-        do {
-            const apiUrl = buildInitialFetchApiUrl(page);
-            console.log('Fetching posts from:', apiUrl);
-            try {
-                const response = await fetch(apiUrl);
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
-                // Get total page count from response headers
-                totalPages = response.headers.get('X-WP-TotalPages');
-                console.log('totalPages:', totalPages);
-                const posts = await response.json();
-                if (posts.length === 0) {
-                    break; // No more posts to fetch
-                }
-                console.log('Fetched posts:', posts.length);
-                allposts = allposts.concat(posts);
-                console.log(`Fetched page ${page} of posts, total count: ${allposts.length}`);
-                //updateCategoryCounts(allposts);
-                page++;
-            } catch (error) {
-                console.error('Error fetching posts:', error);
-                noResultsMessage.textContent = 'Error fetching posts. Please try again later.';
-                break;
-            }
-        } while(page <= totalPages);
-        displayPosts(allposts, filter);
-    }
     async function buildIndex() {
         let page = 1;
         let totalPages = 1; // Initialize total pages
         postindex = [];
         do {
-            const apiUrl = `${restUrl}?_fields=id,date,author,categories&per_page=${postsPerPage}&page=${page}`;
+            const apiUrl = `${restUrl}?_fields=id,date,author,categories&per_page=100&page=${page}`;
             console.log('Building index from:', apiUrl);
             try {
                 const response = await fetch(apiUrl);
@@ -525,6 +565,9 @@ console.log('restUrl:', restUrl);
         console.log('Index built successfully');
         return postindex;
     }
+    // TODO need to build index differently for events.
+    // Index should probably be read in php
+    // Index , other functions read at start need to be read when news/events/etc is selected rather always.
     let fetchbusy = 0;
     let continue_fetch = 1;
     async function fetch_delay(millis){
@@ -542,6 +585,19 @@ console.log('restUrl:', restUrl);
             }
             resolve();
         });
+    }
+    function seteventdates(posts, sub_index_entries){
+        for(i = 0; i < posts.length; i++){
+            if ( posts[i].acf.interval_type && posts[i].acf.interval_type !== 'none'){
+                let item = sub_index_entries[posts[i].id];
+                console.log(i, 'recurring event: ', posts[i].id, ' item: ', item);
+                if ( item ){
+                    posts[i].acf.from = item.from.toISOString();
+                    posts[i].acf.to = item.to.toISOString();
+                }
+            }
+        }
+        return posts;
     }
     async function fetchFilteredPosts(index, filter) {
         console.log('fetchFilteredPosts');
@@ -565,25 +621,37 @@ console.log('restUrl:', restUrl);
         if ( subindex.length === 0 ) {
             console.log('No posts found for selected categories');
         } else {
+            console.log('subindex length: ' + subindex.length);
             for(let s = 0, page = 1; s < subindex.length && continue_fetch; s += 20, page++){
                 let subids = [];
+                let sub_index_entries = {};
                 for( let i = 0; i < 20; i++){
                     if ( s + i < subindex.length){
                         subids.push( subindex[s + i].id);
+                        sub_index_entries[subindex[s + i].id] = subindex[s + i];
                     }
                 }
-                apiUrl = `${restUrl}?include=${subids.join(',')}&_embed=wp:featuredmedia,author&_fields=title,categories,date,excerpt,content,link,featured_media,author,type,_links,_embedded&per_page=20`;
+                //apiUrl = `${restUrl}?include=${subids.join(',')}&_embed=wp:featuredmedia,author&_fields=title,categories,date,excerpt,content,link,featured_media,author,type,_links,_embedded&per_page=20`;
+                apiUrl = buildFetchApiUrl(page, posttype, subids);
+                console.log('posttype: ', posttype);
+                console.log('apiUrl: ', apiUrl);
+
                  //&order=${filter.sortOrder}&orderby=${filter.sortBy}`;
                 const response = await fetch(apiUrl);
                 if (!response.ok) {
                     throw new Error('Network response was not ok');
                 }
                 // Get total page count from response headers
-                totalPages = response.headers.get('X-WP-TotalPages');
-                console.log('totalPages:', totalPages);
+                //totalPages = response.headers.get('X-WP-TotalPages');
+                //console.log('totalPages:', totalPages);
                 let posts = await response.json();
                 if (posts.length === 0) {
                     break; // No more posts to fetch
+                }
+                console.log('Candidate posts: ' + posts.length);
+                if ( posttype === 'event'){
+                    console.log('about to call seteventdates sub_index_entries: ', sub_index_entries);
+                    posts = seteventdates(posts, sub_index_entries);
                 }
                 posts = filterSearch(posts, filter);
                 posts = sortposts(posts, filter);
@@ -601,9 +669,6 @@ console.log('restUrl:', restUrl);
         }
         fetchbusy = 0;
     }
-    await buildIndex();
-    fetchFilteredPosts(postindex, filter);
-//    fetchAllPosts();
     function initialisedisplay(){
         // Clear the post grid container
         postGridContainer.innerHTML = '';
@@ -621,7 +686,7 @@ console.log('restUrl:', restUrl);
             displaybusy = false;
         }
     }
-    /*((((
+    /*
      * change event handlers
     */
     function enableControls(enable){
@@ -660,5 +725,125 @@ console.log('restUrl:', restUrl);
             await fetchFilteredPosts(postindex, filter);
         });
     }
-    // TODO sort index after filtering.
+    if ( eventWindowStart ){
+        eventWindowStart.addEventListener('change', async function(){
+            let v = eventWindowStart.value;
+            await stopfetch();
+            let d = new Date(v);
+            await buildEventIndex(d.toISOString());
+            await fetchFilteredPosts(postindex, filter);
+        });
+    }
+
+    function addMonths(dt, mon){
+        let y = dt.getFullYear();
+        let m = dt.getMonth();
+        let d = dt.getDate();
+        let h = dt.getHours();
+        let min = dt.getMinutes();
+        m += mon;
+        while ( m > 11){
+            m -= 12;
+            y++;
+        }
+        return new Date(y,m,d,h,min,0);
+    }
+    async function buildEventIndex(window_start_str){
+        let window_start = new Date(window_start_str);
+        console.log('window_start: ', window_start.toISOString());
+        // get the events
+        let page = 1;
+        let totalPages = 1; // Initialize total pages
+        postindex = [];
+        do {
+            const apiUrl = `${restUrl}?_fields=id,acf&per_page=100&page=${page}`;
+            console.log('Building index from:', apiUrl);
+            try {
+                const response = await fetch(apiUrl);
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                // Get total page count from response headers
+                totalPages = response.headers.get('X-WP-TotalPages');
+                console.log('totalPages:', totalPages);
+                const posts = await response.json();
+                if (posts.length === 0) {
+                    break; // No more posts to fetch
+                }
+                // filter posts
+                for(const post of posts){
+                    let from = formDate(post.acf.from);
+                    let to = formDate(post.acf.to);
+                    let classification = post.acf.classification;
+                    let id = post.id;
+                    if ( post.acf ){
+                        if ( post.acf.interval_type && post.acf.interval_type != 'none'){
+                            // event is repeated
+                            let interval_end = null;
+                            if ( post.acf.interval_end ){
+                                interval_end = new Date(post.acf.interval);
+                            }
+                            if ( (interval_end && interval_end > from) || interval_end === null){
+                                // wind from and to dates forward until
+                                item = {
+                                    from: from,
+                                    to: to,
+                                    id: id,
+                                    classification: classification
+                                }
+                                console.log(item);
+                                let t = post.acf.interval_type;
+                                let v = post.acf.interval_value;
+                                while(from < window_start){
+                                    let mult = v;
+                                    if ( t === 'month'){
+                                        from = addMonths(from, mult);
+                                        to = addMonths(to, mult);
+                                    } else {
+                                        if ( t === 'week'){
+                                            mult *= 7;
+                                        }
+                                        from = new Date(from.getTime() + mult * 24 * 3600 * 1000);
+                                        to = new Date(to.getTime() + mult * 24 * 3600 * 1000);
+                                    }
+                                }
+                                item.from = from;
+                                item.to = to;
+                                postindex.push(item);
+                            }
+                        } else {
+                            // event is single
+                            let to = new Date(post.acf.to);
+                            if ( to > window_start ) {
+                                item = {
+                                    from: from,
+                                    to: to,
+                                    id: id,
+                                    classification: classification
+                                }
+                                postindex.push(item);
+                            }
+                        }
+                    }
+                }
+                console.log('Fetched posts:', posts.length);
+                //postindex = postindex.concat(posts);
+                page++;
+            } catch (error) {
+                console.log(error.toString());
+                noResultsMessage.textContent = 'Error building index. Please try again later.';
+                break;
+            }
+        } while(page <= totalPages);
+        console.log('Index built successfully');
+        return postindex;
+    }
+    if (typeof actPostsData !== 'undefined' && actPostsData.post_type != '') {
+        if ( posttype !== 'event' ){
+            await buildIndex();
+        } else if ( posttype === 'event'){
+            await buildEventIndex(initial_window_start); // different sort of index
+        }
+        fetchFilteredPosts(postindex, filter);
+    }
 });
