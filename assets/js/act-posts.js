@@ -425,7 +425,7 @@ console.log('posttype: ', posttype);
             }
             categoryCounts['all']++;
         });
-        // Update the spans with the counts
+        // Update the counts directly in the option's text content
         if ( categorySelect ){
             for(let option of categorySelect.options) {
                 let id = option.value;
@@ -433,10 +433,13 @@ console.log('posttype: ', posttype);
                 if ( id === '' ){
                     count = categoryCounts['all'];
                 }
-                let span = option.querySelector('.act-posts-category-count');
-                if ( span ) {
-                    span.textContent = count || '0';
-                }
+
+                // Get the original name part (e.g., "Act with art")
+                // This assumes the name is always before the first '('
+                let originalName = option.textContent.split('(')[0].trim();
+
+                // Update the option's text content
+                option.textContent = originalName + `(${count || '0'})`;
             }
         }
     }
@@ -794,17 +797,19 @@ console.log('posttype: ', posttype);
                                 console.log(item);
                                 let t = post.acf.interval_type;
                                 let v = post.acf.interval_value;
-                                while(from < window_start){
-                                    let mult = v;
-                                    if ( t === 'month'){
-                                        from = addMonths(from, mult);
-                                        to = addMonths(to, mult);
-                                    } else {
-                                        if ( t === 'week'){
-                                            mult *= 7;
+                                if ( v ){
+                                    while(from < window_start){
+                                        let mult = v;
+                                        if ( t === 'month'){
+                                            from = addMonths(from, mult);
+                                            to = addMonths(to, mult);
+                                        } else {
+                                            if ( t === 'week'){
+                                                mult *= 7;
+                                            }
+                                            from = new Date(from.getTime() + mult * 24 * 3600 * 1000);
+                                            to = new Date(to.getTime() + mult * 24 * 3600 * 1000);
                                         }
-                                        from = new Date(from.getTime() + mult * 24 * 3600 * 1000);
-                                        to = new Date(to.getTime() + mult * 24 * 3600 * 1000);
                                     }
                                 }
                                 item.from = from;

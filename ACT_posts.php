@@ -3,7 +3,7 @@
  * Plugin Name: ACT Posts Plugin
  * Plugin URI:  https://sites.stringerhj.co.uk/ACT/WP_plugins/ACT_posts/html/ACT_posts.html
  * Description: A custom plugin to display posts in a responsive grid with infinite scroll and filtering.
- * Version:     1.1.0
+ * Version:     1.1.1
  * Author: Julian Stringer
  * Author URI:  https://your-website.com/
  * License:     GPL-2.0+
@@ -16,35 +16,6 @@
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
-// Enable ACF shortcodes
-// In your theme's functions.php file or a custom plugin
-/*
-add_action( 'acf/init', 'my_acf_enable_shortcode_setting' );
-function my_acf_enable_shortcode_setting() {
-    // Enable the ACF shortcode. USE WITH CAUTION due to security implications.
-    // It is disabled by default from ACF 6.3.0
-    acf_update_setting( 'enable_shortcode', true );
-}
-*/
-/**
- * Register post types, with REST API support
- *
- * Based on example at: https://developer.wordpress.org/reference/functions/register_post_type
- */
-/*
-add_action( 'init', 'register_custom_post_types' );
-function register_custom_post_types() {
-    $args = array(
-      'public'       => true,
-      'show_in_rest' => true,
-      'label'        => 'Team',
-      'supports'     => array( 'title', 'editor', 'thumbnail' ) 
-    );
-    register_post_type( 'team', $args );
-//    $args['label'] = 'Events';
-//    register_post_type( 'event', $args);
-}
-*/
 /**
  * Add a featured image column to the custom post type list table.
  */
@@ -117,7 +88,7 @@ class ACT_Posts_Plugin {
     public function register_shortcode() {
         add_shortcode( 'act_posts', array( $this, 'render_posts_grid_shortcode' ) );
     }
-    private function show_post_controls($initial_cateory_ids, $categories, $sortby, $sortorder){
+    private function show_post_controls($initial_category_ids, $categories, $sortby, $sortorder){
         ?>
 
         <table class="act-posts-grid-controls">
@@ -140,15 +111,15 @@ class ACT_Posts_Plugin {
                         <?php
                             foreach ( $categories as $category_obj ) {
                                 $selected = '';
-                                foreach( $initial_category_ids as $initial_category_id ) {
-                                    if ( selected( $initial_category_id, $category_obj->term_id, false )){
-                                        $selected = 'selected';
+                                if ( !empty($initial_category_ids) ){
+                                    foreach( $initial_category_ids as $initial_category_id ) {
+                                        if ( selected( $initial_category_id, $category_obj->term_id, false )){
+                                            $selected = 'selected';
+                                        }
                                     }
                                 }
                                 echo '<option value="' . esc_attr( $category_obj->term_id ) . '" ' . $selected . '>' 
                                 . esc_html( $category_obj->name ) .
-                                '(<span class="act-posts-category-count" data-term-id="' . 
-                                            esc_attr( $category_obj->term_id ) . '"></span>)'.
                                     '</option>'; // Placeholder for count
                             }
                         ?>
@@ -192,11 +163,11 @@ class ACT_Posts_Plugin {
      *
      * @param string $initial_window_start_html The initial start date/time for the HTML input.
      */
-    private function show_event_controls( $initial_window_start_html) {
+    private function show_event_controls( $initial_window_start_html, $prompt) {
         ?>
         <div class="act-event-controls">
             <div class="date-time-filter">
-                <label for="event-window-start"><?php esc_html_e( 'Events from:', 'act-posts' ); ?></label>
+                <label for="event-window-start"><?php esc_html_e( $prompt, 'act-posts' ); ?></label>
                 <input type="datetime-local" id="event-window-start"
                        value="<?php echo esc_attr( $initial_window_start_html ); ?>">
             </div>
@@ -228,7 +199,10 @@ class ACT_Posts_Plugin {
             'has_controls'    => 'yes',  // determines if controls are displayed
             // New attributes for 'event' post type:
             'window_start'    => '',          // Initial window start datetime (e.g., 'now', '2025-01-01 00:00:00')
+            'prompt'          => 'Events from:'
         ), $atts, 'act_posts' );
+
+        $prompt = $atts['prompt'];
 
         $post_type = sanitize_key( $atts['post_type'] ); // Sanitize post type
         // If window_start is provided in shortcode or URL
@@ -290,7 +264,8 @@ class ACT_Posts_Plugin {
             if ( $atts['post_type'] === 'event' ){
                 // Call the new function for event controls
                 $this->show_event_controls(
-                    $initial_window_start->format( 'Y-m-d\TH:i' ) // HTML datetime-local format
+                    $initial_window_start->format( 'Y-m-d\TH:i' ), // HTML datetime-local format
+                    $prompt,
                 );
             } else {
                 // Get all categories
