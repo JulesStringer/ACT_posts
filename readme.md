@@ -69,6 +69,7 @@ For events the control panel consists of the reference date. The shortcode for e
 The full set of short code parameters are given in the following table:
 
 |Parameter|Description|
+|---------|-----------|
 |category|Category ID,slug, or name. Can also be a comma separated list of these|
 |sort_by|Choice of field to sort by - options are date and author|
 |sort_order|Choice of sort order (desc - descending, asc - ascending|
