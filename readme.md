@@ -3,16 +3,16 @@
 This plugin provides a shortcode which can be configured to either:
 
 + Display all posts together with controls to:
- + select which category is displayed (or All)
- + control the sort order by:
-   + Date (newset first)
-   + Date (oldest first)
-   + Author
+   + select which category is displayed (or All)
+   + control the sort order by:
+       + Date (newset first)
+       + Date (oldest first)
+       + Author
 
 + Display all posts relating to a preconfigured category in descending date order
 + Display custom post types, with special supports for:
-  + Team members - without control panel
-  + Events - with reference date
+   + Team members - without control panel
+   + Events - with reference date
 
 ## Displaying posts for a single category
 It is intended that each activity page will have a posts section for posts related to that category.
