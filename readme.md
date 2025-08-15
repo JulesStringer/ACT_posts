@@ -3,7 +3,7 @@
 This plugin provides a shortcode which can be configured to either:
 
 + Display all posts together with controls to:
-   + select which category is displayed (or All)
++   + select which category is displayed (or All)
    + control the sort order by:
        + Date (newset first)
        + Date (oldest first)
