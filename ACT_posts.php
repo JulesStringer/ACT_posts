@@ -152,7 +152,7 @@ class ACT_Posts_Plugin {
                     'id' => (int) $row['ID'],
                     'date' => $row['post_date'],
                     'author' => (int) $row['post_author'],
-                    'category_ids' => !empty($row['category_ids']) ? array_map('intval', explode(',', $row['category_ids'])) : array(),
+                    'categories' => !empty($row['category_ids']) ? array_map('intval', explode(',', $row['category_ids'])) : array(),
                 );
             }
         }
@@ -275,14 +275,6 @@ class ACT_Posts_Plugin {
                         <option value="author_asc" <?php selected( $sortby === 'author' && $sortorder === 'asc' ); ?>><?php esc_html_e( 'Author (A-Z)', 'act-posts' ); ?></option>
                         <option value="author_desc" <?php selected( $sortby === 'author' && $sortorderatts['sort_order'] === 'desc' ); ?>><?php esc_html_e( 'Author (Z-A)', 'act-posts' ); ?></option>
                     </select>
-                </td>
-            </tr>
-            <tr>
-                <td>
-                    <label for="act-posts-selected" >Selected</label>
-                </td>
-                <td>
-                    <span id="act-posts-selected"></span>
                 </td>
             </tr>
         </table>

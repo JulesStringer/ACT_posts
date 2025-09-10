@@ -25,6 +25,7 @@ console.log('posttype: ', posttype);
     const eventWindowStart = document.getElementById('event-window-start');
     const morepostsDiv = document.getElementById('act-posts-more');
     const loadMoreButton = document.getElementById('act-posts-load-more-button');
+    const BLOCK_LENGTH = 10; // Number of posts to display per block
     // state variables
     //let page = 1;
     let allposts = [];
@@ -378,12 +379,10 @@ console.log('posttype: ', posttype);
             return {}; // Return an empty object on error
         }
     }
-    // --- Function to build API URL for initial fetch ---
+    // --- Function to build API URL for initial fetch ---hi
     function buildFetchApiUrl(page, posttype, ids){
         // We fetch *all* posts potentially, so( no category/search filter here
-        // The REST API default max is 100, if more posts exist, you might need a loop or
-        // a custom endpoint. For <200 posts, 100 will get a good chunk.
-        // For truly ALL posts, you'd need to loop based on X-WP-TotalPages
+        // This is now called to fetch BLOCK_LENGTH posts aka pages in the REST API.
         let r = restUrl + '?';
         if ( ids ){
             r += 'include=' + ids.join(',') + '&';
@@ -395,10 +394,9 @@ console.log('posttype: ', posttype);
         } else if ( posttype === 'event'){
             r += '_embed=wp:featuredmedia,author&_fields=id,title,date,excerpt,content,link,featured_media,acf,_links,_embedded';
         } else {
-//            console.log('buildFetchApiUrl incorrect posttype: ', posttype);
             r += '_embed=wp:featuredmedia,author&_fields=title,categories,date,excerpt,content,link,featured_media,author,_links,_embedded';
         }
-        r += '&per_page=20';
+        r += '&per_page= '+ BLOCK_LENGTH;
         if ( !ids ){
             r += '&page=' + page;
         }
@@ -498,38 +496,9 @@ console.log('posttype: ', posttype);
      *  build index for normal posts and any post type except events
     */
     async function buildIndex() {
-        let page = 1;
-        let totalPages = 1; // Initialize total pages
+        // Index now formed on server in a single optimised SQL
         postindex = select_list;
-        console.log('select_list length: ', postindex.length);
-/*
-        do {
-            const apiUrl = `${restUrl}?_fields=id,date,author,categories&per_page=100&page=${page}`;
-            console.log('Building index from:', apiUrl);
-            try {
-                const response = await fetch(apiUrl);
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
-                // Get total page count from response headers
-                totalPages = response.headers.get('X-WP-TotalPages');
-                console.log('totalPages:', totalPages);
-                const posts = await response.json();
-                if (posts.length === 0) {
-                    break; // No more posts to fetch
-                }
-                console.log('Fetched posts:', posts.length);
-                postindex = postindex.concat(posts);
-                //updateCategoryCounts(postindex);
-                page++;
-            } catch (error) {
-                console.log(error.toString());
-                noResultsMessage.textContent = 'Error building index. Please try again later.';
-                break;
-            }
-        } while(page <= totalPages);
-*/
-        console.log('Index built successfully');
+        console.log('Index length: ', postindex.length);
         return postindex;
     }
     // TODO need to build index differently for events.
@@ -570,14 +539,13 @@ console.log('posttype: ', posttype);
     let page = 1;
     async function fetchFilteredPosts(index, filter) {
         console.log('fetchFilteredPosts');
-        let apiUrl = '';
         continue_fetch = 1;
         fetchbusy = 1;
         allposts = [];
         initialisedisplay();
         subindex = filterCategory(index, filter);
         subindex = sortposts(subindex, filter);
-        //console.log('subindex length: ' + subindex.length);
+        console.log('subindex length: ' + subindex.length);
         if ( subindex.length < 30 && filter.sortBy === 'author'){
             let authors = [];
             for(let sub of subindex){
@@ -586,26 +554,27 @@ console.log('posttype: ', posttype);
             }
             console.log('sub authors: ', authors);
         }
-        // form the API URL to fetch posts by IDs in blocks of 20
+        start_page = 0;
         if ( subindex.length === 0 ) {
             console.log('No posts found for selected categories');
         } else {
             console.log('subindex length: ' + subindex.length);
-            start_page = 0;
             fetch_next_block_posts();
         }
         fetchbusy = 0;
     }
     async function fetch_next_block_posts(){
+        let apiUrl = '';
 
         let subids = [];
         let sub_index_entries = {};
-        for( let i = 0; i < 20; i++){
+        for( let i = 0; i < BLOCK_LENGTH; i++){
             if ( start_page + i < subindex.length){
                 subids.push( subindex[start_page + i].id);
                 sub_index_entries[subindex[start_page + i].id] = subindex[start_page + i];
             }
         }
+        // form the API URL to fetch posts by IDs in blocks of BLOCK_LENGTH
         apiUrl = buildFetchApiUrl(page, posttype, subids);
         console.log('posttype: ', posttype);
         console.log('apiUrl: ', apiUrl);
@@ -639,7 +608,7 @@ console.log('posttype: ', posttype);
         if ( continue_fetch){
             notifymoreposts();
         }
-        start_page+=20;
+        start_page+=BLOCK_LENGTH;
         page++;
         if ( start_page < subindex.length ){
             morepostsDiv.style.display = 'block';
@@ -675,6 +644,7 @@ console.log('posttype: ', posttype);
     function initialisedisplay(){
         // Clear the post grid container
         postGridContainer.innerHTML = '';
+        console.log('Display initialised');
         lastpost = 0;
     }
     function notifymoreposts(){

@@ -78,3 +78,12 @@ The full set of short code parameters are given in the following table:
 |has_controls|Determines if a control panel is displayed before the posts|
 |window_start|Reference date for events (not normally set)|
 |prompt|Prompt to appear before reference date (default Events from:)|
+
+# Changes in this version
+10/9/2025
++ SQL to form category counts is executed before category lists are displayed and merged in.
++ SQL to for an appropriate select list for all records is executed and a select list object is sent with the initial page payload.
++ The first block of 20 pages is formed immediately the payload is received.
++ Scrolling the bottom of the block into view the next block is fetched if any.
++ This speeds the initial view and prevents unwanted traffic that occurs when all blocks are fetched always.
+
