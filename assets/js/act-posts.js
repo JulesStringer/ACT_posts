@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     const siteRestUrl = actPostsData.site_rest_url; // Base REST URL for other endpoints like categories
     const posttype = actPostsData.post_type;
     const initial_window_start = actPostsData.initial_window_start;
+    const select_list = actPostsData.select_list;
 console.log('initial_window_start: ' , initial_window_start);
 console.log('restUrl:', restUrl);
 console.log('posttype: ', posttype);
@@ -22,7 +23,8 @@ console.log('posttype: ', posttype);
     const noResultsMessage = document.getElementById('act-posts-no-results');
     const selectedCount = document.getElementById('act-posts-selected');
     const eventWindowStart = document.getElementById('event-window-start');
-
+    const morepostsDiv = document.getElementById('act-posts-more');
+    const loadMoreButton = document.getElementById('act-posts-load-more-button');
     // state variables
     //let page = 1;
     let allposts = [];
@@ -402,47 +404,6 @@ console.log('posttype: ', posttype);
         }
         return r;
     }
-    console.log('Example API URL for initial fetch:', buildFetchApiUrl(1, posttype, null));
-    /*
-     * Update counts of each category in the categorySelect dropdown including the All Categories option
-    */
-    function updateCategoryCounts(posts) {
-        // Reset all counts to 0
-        categoryCountSpans.forEach(span => span.textContent = '0');
-        // Count posts per category
-        const categoryCounts = {};
-        posts.forEach(post => {
-            if ( post.categories ){
-                for(const id of post.categories){
-                    if (!categoryCounts[id]) {
-                        categoryCounts[id] = 0; // Initialize count for this category
-                    }
-                    categoryCounts[id]++;                
-                }
-            }
-            if (!categoryCounts['all']) {
-                categoryCounts['all'] = 0; // Initialize 'all' count if not present
-            }
-            categoryCounts['all']++;
-        });
-        // Update the counts directly in the option's text content
-        if ( categorySelect ){
-            for(let option of categorySelect.options) {
-                let id = option.value;
-                let count = categoryCounts[id];
-                if ( id === '' ){
-                    count = categoryCounts['all'];
-                }
-
-                // Get the original name part (e.g., "Act with art")
-                // This assumes the name is always before the first '('
-                let originalName = option.textContent.split('(')[0].trim();
-
-                // Update the option's text content
-                option.textContent = originalName + `(${count || '0'})`;
-            }
-        }
-    }
     /*
      *
     */
@@ -539,7 +500,9 @@ console.log('posttype: ', posttype);
     async function buildIndex() {
         let page = 1;
         let totalPages = 1; // Initialize total pages
-        postindex = [];
+        postindex = select_list;
+        console.log('select_list length: ', postindex.length);
+/*
         do {
             const apiUrl = `${restUrl}?_fields=id,date,author,categories&per_page=100&page=${page}`;
             console.log('Building index from:', apiUrl);
@@ -557,7 +520,7 @@ console.log('posttype: ', posttype);
                 }
                 console.log('Fetched posts:', posts.length);
                 postindex = postindex.concat(posts);
-                updateCategoryCounts(postindex);
+                //updateCategoryCounts(postindex);
                 page++;
             } catch (error) {
                 console.log(error.toString());
@@ -565,6 +528,7 @@ console.log('posttype: ', posttype);
                 break;
             }
         } while(page <= totalPages);
+*/
         console.log('Index built successfully');
         return postindex;
     }
@@ -602,11 +566,13 @@ console.log('posttype: ', posttype);
         }
         return posts;
     }
+    let start_page = 0;
+    let page = 1;
     async function fetchFilteredPosts(index, filter) {
         console.log('fetchFilteredPosts');
+        let apiUrl = '';
         continue_fetch = 1;
         fetchbusy = 1;
-        let apiUrl = '';
         allposts = [];
         initialisedisplay();
         subindex = filterCategory(index, filter);
@@ -625,53 +591,87 @@ console.log('posttype: ', posttype);
             console.log('No posts found for selected categories');
         } else {
             console.log('subindex length: ' + subindex.length);
-            for(let s = 0, page = 1; s < subindex.length && continue_fetch; s += 20, page++){
-                let subids = [];
-                let sub_index_entries = {};
-                for( let i = 0; i < 20; i++){
-                    if ( s + i < subindex.length){
-                        subids.push( subindex[s + i].id);
-                        sub_index_entries[subindex[s + i].id] = subindex[s + i];
-                    }
-                }
-                //apiUrl = `${restUrl}?include=${subids.join(',')}&_embed=wp:featuredmedia,author&_fields=title,categories,date,excerpt,content,link,featured_media,author,type,_links,_embedded&per_page=20`;
-                apiUrl = buildFetchApiUrl(page, posttype, subids);
-                console.log('posttype: ', posttype);
-                console.log('apiUrl: ', apiUrl);
-
-                 //&order=${filter.sortOrder}&orderby=${filter.sortBy}`;
-                const response = await fetch(apiUrl);
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
-                // Get total page count from response headers
-                //totalPages = response.headers.get('X-WP-TotalPages');
-                //console.log('totalPages:', totalPages);
-                let posts = await response.json();
-                if (posts.length === 0) {
-                    break; // No more posts to fetch
-                }
-                console.log('Candidate posts: ' + posts.length);
-                if ( posttype === 'event'){
-                    console.log('about to call seteventdates sub_index_entries: ', sub_index_entries);
-                    posts = seteventdates(posts, sub_index_entries);
-                }
-                posts = filterSearch(posts, filter);
-                posts = sortposts(posts, filter);
-                console.log('Fetched posts:', posts.length);
-                allposts = allposts.concat(posts);
-                console.log(`Fetched page ${page} of posts, total count: ${allposts.length}`);
-                if ( selectedCount ){
-                    selectedCount.textContent = allposts.length;
-                }
-                //updateCategoryCounts(allposts);
-                if ( continue_fetch){
-                    notifymoreposts();
-                }
-            }
+            start_page = 0;
+            fetch_next_block_posts();
         }
         fetchbusy = 0;
     }
+    async function fetch_next_block_posts(){
+
+        let subids = [];
+        let sub_index_entries = {};
+        for( let i = 0; i < 20; i++){
+            if ( start_page + i < subindex.length){
+                subids.push( subindex[start_page + i].id);
+                sub_index_entries[subindex[start_page + i].id] = subindex[start_page + i];
+            }
+        }
+        apiUrl = buildFetchApiUrl(page, posttype, subids);
+        console.log('posttype: ', posttype);
+        console.log('apiUrl: ', apiUrl);
+
+            //&order=${filter.sortOrder}&orderby=${filter.sortBy}`;
+        const response = await fetch(apiUrl);
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        // Get total page count from response headers
+        //totalPages = response.headers.get('X-WP-TotalPages');
+        //console.log('totalPages:', totalPages);
+        let posts = await response.json();
+        if (posts.length === 0) {
+            return; // No more posts to fetch
+        }
+        console.log('Candidate posts: ' + posts.length);
+        if ( posttype === 'event'){
+            console.log('about to call seteventdates sub_index_entries: ', sub_index_entries);
+            posts = seteventdates(posts, sub_index_entries);
+        }
+        posts = filterSearch(posts, filter);
+        posts = sortposts(posts, filter);
+        console.log('Fetched posts:', posts.length);
+        allposts = allposts.concat(posts);
+        console.log(`Fetched page ${page} of posts, total count: ${allposts.length}`);
+        if ( selectedCount ){
+            selectedCount.textContent = allposts.length;
+        }
+        //updateCategoryCounts(allposts);
+        if ( continue_fetch){
+            notifymoreposts();
+        }
+        start_page+=20;
+        page++;
+        if ( start_page < subindex.length ){
+            morepostsDiv.style.display = 'block';
+        } else {
+            morepostsDiv.style.display = 'none';
+        }
+    }
+    // Intersection Observer to auto-fetch next page when "Load More" button appears in view
+    if ('IntersectionObserver' in window && loadMoreButton) {
+        const observer = new IntersectionObserver(async (entries) => {
+            for (const entry of entries) {
+                if (entry.isIntersecting && continue_fetch && start_page < subindex.length) {
+                    morepostsDiv.style.display = 'none';
+                    await fetch_next_block_posts();
+                }
+            }
+        }, {
+            root: null, // viewport
+            threshold: 0.1 // trigger when at least 10% visible
+        });
+        observer.observe(loadMoreButton);
+    }
+
+    loadMoreButton.addEventListener('click', async function(){
+        if ( continue_fetch ){
+            morepostsDiv.style.display = 'none';
+            if ( start_page < subindex.length ) {
+                await fetch_next_block_posts();
+            }
+        }
+    });
+    // TODO something to trigger fetching the next block
     function initialisedisplay(){
         // Clear the post grid container
         postGridContainer.innerHTML = '';

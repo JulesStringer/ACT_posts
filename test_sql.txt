@@ -1,0 +1,90 @@
+1. To form category counts
+SELECT
+    t.term_id AS category_id,
+    t.name AS category_name,
+    COUNT(p.ID) AS post_count
+FROM
+    xhk_terms AS t
+JOIN
+    xhk_term_taxonomy AS tt ON t.term_id = tt.term_id
+JOIN
+    xhk_term_relationships AS tr ON tt.term_taxonomy_id = tr.term_taxonomy_id
+JOIN
+    xhk_posts AS p ON tr.object_id = p.ID
+WHERE
+    tt.taxonomy = 'category'
+    AND p.post_status = 'publish'
+GROUP BY
+    t.name
+ORDER BY
+    post_count DESC;
+
+localhost:3306/test_ACT/xhk_terms/		http://192.168.1.92/phpmyadmin/index.php?route=/&route=%2F&db=test_ACT&table=xhk_posts
+
+   Showing rows 0 - 11 (12 total, Query took 0.0020 seconds.)
+
+category_id	category_name	post_count   	
+29	News	68	
+27	Energy &amp; Built Environment	52	
+34	Wildlife Wardens	44	
+25	Ecology	31	
+30	Public Engagement	31	
+33	Transport	30	
+24	Carbon cutters	26	
+1	Uncategorised	17	
+26	Economy and Business	16	
+23	Act with art	7	
+28	Food, Farming, Forestry, Fisheries	3	
+2	Uncategorized	1	
+
+
+2. To get id ordered by date in (29 - News, 27 - E&BE; 23 - Act with Art)
+SELECT
+    distinct p.ID
+FROM
+    xhk_posts AS p
+JOIN
+    xhk_term_relationships AS tr ON tr.object_id = p.ID
+JOIN
+     xhk_term_taxonomy AS tt ON tt.term_taxonomy_id = tr.term_taxonomy_id
+WHERE
+    tt.taxonomy = 'category'
+    AND p.post_status = 'publish' and post_type='post'
+    AND tt.term_id in (29,27,23)
+ORDER BY
+    post_date DESC;
+
+
+0.0009s
+
+3. To get all posts
+SELECT
+    p.ID
+FROM
+    xhk_posts AS p
+WHERE 
+    p.post_status = 'publish' and post_type='post'
+ORDER BY
+    post_date DESC;
+
+0.0004s
+
+4. To get post id, date, author, categories
+SELECT 
+    p.ID, 
+    p.post_date, 
+    p.post_author, 
+    GROUP_CONCAT(t.term_id) AS category_ids
+FROM 
+    xhk_posts p
+LEFT JOIN 
+    xhk_term_relationships tr ON tr.object_id = p.ID
+LEFT JOIN 
+    xhk_term_taxonomy t ON t.term_taxonomy_id = tr.term_taxonomy_id AND t.taxonomy = 'category'
+WHERE 
+    p.post_status = 'publish' 
+    AND p.post_type = 'post'
+GROUP BY 
+    p.ID, p.post_date, p.post_author
+ORDER BY 
+    p.post_date DESC;

@@ -88,7 +88,135 @@ class ACT_Posts_Plugin {
     public function register_shortcode() {
         add_shortcode( 'act_posts', array( $this, 'render_posts_grid_shortcode' ) );
     }
+    /**
+     * Executes a specific SQL query to get a count of published posts per category.
+     *
+     * @return array An associative array where keys are category IDs and values are post counts.
+     */
+    private function get_category_post_counts_lookup() {
+        global $wpdb;
+
+        $query = 
+            "
+            SELECT
+                t.term_id AS category_id,
+                COUNT(p.ID) AS post_count
+            FROM
+                {$wpdb->prefix}terms AS t
+            JOIN
+                {$wpdb->prefix}term_taxonomy AS tt ON t.term_id = tt.term_id
+            JOIN
+                {$wpdb->prefix}term_relationships AS tr ON tt.term_taxonomy_id = tr.term_taxonomy_id
+            JOIN
+                {$wpdb->prefix}posts AS p ON tr.object_id = p.ID
+            WHERE
+                tt.taxonomy = 'category'
+                AND p.post_status = 'publish'
+            GROUP BY
+                t.name
+            ORDER BY
+                post_count DESC
+            ";
+
+        $results = $wpdb->get_results($query, ARRAY_A);
+
+        $category_counts = [];
+        if (!empty($results)) {
+            foreach ($results as $row) {
+                $category_counts[$row['category_id']] = (int) $row['post_count'];
+            }
+        }
+
+        return $category_counts;
+    }
+    private function get_post_count(){
+        global $wpdb;
+        $query = "SELECT COUNT(*) AS POST_COUNT FROM {$wpdb->prefix}posts where post_type = 'post' AND post_status = 'publish'";
+        $result = $wpdb->get_row($query, ARRAY_A);
+        return (int) $result['POST_COUNT'];        
+    }
+    private function get_posts_select_list(){
+        global $wpdb;
+        $query = "SELECT p.ID, p.post_date, p.post_author,GROUP_CONCAT(t.term_id) AS category_ids
+            FROM {$wpdb->prefix}posts p
+            LEFT JOIN {$wpdb->prefix}term_relationships tr ON tr.object_id = p.ID
+            LEFT JOIN {$wpdb->prefix}term_taxonomy t ON t.term_taxonomy_id = tr.term_taxonomy_id AND t.taxonomy = 'category'
+            WHERE p.post_status = 'publish' AND p.post_type = 'post'
+            GROUP BY p.ID, p.post_date, p.post_author
+            ORDER BY p.post_date DESC";
+        $results = $wpdb->get_results($query, ARRAY_A);
+        $select_list = [];
+        if ( !empty($results)){
+            foreach($results as $row){
+                $select_list[] = array(
+                    'id' => (int) $row['ID'],
+                    'date' => $row['post_date'],
+                    'author' => (int) $row['post_author'],
+                    'category_ids' => !empty($row['category_ids']) ? array_map('intval', explode(',', $row['category_ids'])) : array(),
+                );
+            }
+        }
+        return $select_list;
+    }
+    private function get_event_select_list(){
+        global $wpdb;
+        $query = "SELECT p.ID, 
+	(SELECT m.meta_value FROM `{$wpdb->prefix}postmeta` AS m where m.meta_key = 'from' AND m.post_id = p.ID) AS from_date,
+    (SELECT m.meta_value FROM `{$wpdb->prefix}postmeta` AS m where m.meta_key = 'to' AND m.post_id = p.ID) AS to_date,
+	(SELECT m.meta_value FROM `{$wpdb->prefix}postmeta` AS m where m.meta_key = 'classification' AND m.post_id = p.ID) AS classification,
+	(SELECT m.meta_value FROM `{$wpdb->prefix}postmeta` AS m where m.meta_key = 'interval_type' AND m.post_id = p.ID) AS interval_type,
+	(SELECT m.meta_value FROM `{$wpdb->prefix}postmeta` AS m where m.meta_key = 'interval_end' AND m.post_id = p.ID) AS interval_end,
+	(SELECT m.meta_value FROM `{$wpdb->prefix}postmeta` AS m where m.meta_key = 'interval_value' AND m.post_id = p.ID) AS interval_value
+	FROM {$wpdb->prefix}posts AS p
+    WHERE p.post_type = 'event'";
+        $results = $wpdb->get_results($query, ARRAY_A);
+        $select_list = [];
+        if ( !empty($results)){
+            foreach($results as $row){
+                $select_list[] = array(
+                    'id' => (int) $row['ID'],
+                    'from_date' => $row['from_date'],
+                    'to_date' => $row['to_date'],
+                    'classification' => $row['classification'],
+                    'interval_type' => $row['interval_type'],
+                    'interval_end' => $row['interval_end'],
+                    'interval_value' => $row['interval_value']
+                );
+            }
+        }
+        return $select_list;
+    }
+    private function get_other_select_list($post_type){
+        global $wpdb;
+        $query = "SELECT p.ID, p.post_date, p.post_author
+            FROM {$wpdb->prefix}posts p
+            WHERE p.post_status = 'publish' AND p.post_type = '".$post_type."'
+            ORDER BY p.post_date DESC";
+        $results = $wpdb->get_results($query, ARRAY_A);
+        $select_list = [];
+        if ( !empty($results)){
+            foreach($results as $row){
+                $select_list[] = array(
+                    'id' => (int) $row['ID'],
+                    'date' => $row['post_date'],
+                    'author' => (int) $row['post_author']
+                );
+            }
+        }
+        return $select_list;
+    }
+    private function get_select_list($post_type){
+        switch($post_type){
+            case 'posts':
+                return $this->get_posts_select_list();
+            case 'event':
+                return $this->get_event_select_list();
+            default:
+                return $this->get_other_select_list($post_type);
+        }
+    }
     private function show_post_controls($initial_category_ids, $categories, $sortby, $sortorder){
+        $category_counts = $this->get_category_post_counts_lookup();
         ?>
 
         <table class="act-posts-grid-controls">
@@ -106,7 +234,7 @@ class ACT_Posts_Plugin {
                             }
                             ?>
                             ><?php esc_html_e( 'All Categories ') ?> 
-                            (<span class="act-posts-category-count" data-term-id="all"></span>)
+                            (<span class="act-posts-category-count" data-term-id="all"><?php echo $this->get_post_count(); ?></span>)
                         </option>
                         <?php
                             foreach ( $categories as $category_obj ) {
@@ -119,8 +247,10 @@ class ACT_Posts_Plugin {
                                     }
                                 }
                                 echo '<option value="' . esc_attr( $category_obj->term_id ) . '" ' . $selected . '>' 
-                                . esc_html( $category_obj->name ) .
-                                    '</option>'; // Placeholder for count
+                                . esc_html( $category_obj->name ) 
+                                . ' (<span class="act-posts-category-count" data-term-id="' . esc_attr($category_obj->term_id) . '">' .
+                                 ( isset($category_counts[$category_obj->term_id]) ? $category_counts[$category_obj->term_id] : 0 ) 
+                                . '</span>)</option>';
                             }
                         ?>
                     </select>
@@ -279,6 +409,11 @@ class ACT_Posts_Plugin {
                 <div id="act-posts-grid-container" class="act-posts-grid-container">
                 </div>
 
+                <div id="act-posts-more" class="act-posts-more" style="display: none;">
+                    <button id="act-posts-load-more-button" class="act-posts-load-more-button">
+                        <?php esc_html_e( 'Load More Posts', 'act-posts' ); ?>
+                    </button>
+                </div>
                 <div id="act-posts-infinite-scroll-trigger" class="act-posts-infinite-scroll-trigger"></div>
 
                 <div id="act-posts-loading-spinner" class="act-posts-loading-spinner" style="display: none;">
@@ -321,6 +456,8 @@ class ACT_Posts_Plugin {
         // Default values for actPostsData if shortcode wasn't rendered on the page,
         // or if it was, use the values stored in $this->current_shortcode_atts
         $post_type = isset( $atts['post_type']) ? $atts['post_type'] : 'posts';
+        $select_list = $this->get_select_list($post_type);
+        error_log('select_list count: ' . count($select_list) );
         $localized_data = array(
             'rest_url'           => get_rest_url() . 'wp/v2/' . $post_type,
             'nonce'              => wp_create_nonce( 'wp_rest' ), // For future authenticated requests if needed
@@ -337,7 +474,8 @@ class ACT_Posts_Plugin {
 
             'home_url'           => home_url(), // Useful for relative URLs or site root
             'site_rest_url'      => get_rest_url(), // Full site REST base URL for other endpoints
-            'post_type'          => $post_type,    // type of post to fetch      
+            'post_type'          => $post_type,    // type of post to fetch     
+            'select_list'        => $select_list,
         );
 
         wp_localize_script(
