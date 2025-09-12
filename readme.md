@@ -80,6 +80,8 @@ The full set of short code parameters are given in the following table:
 |prompt|Prompt to appear before reference date (default Events from:)|
 
 # Changes in this version
+12/9/2025
++ Search implemented in back end returns an alternative select list.
 10/9/2025
 + SQL to form category counts is executed before category lists are displayed and merged in.
 + SQL to for an appropriate select list for all records is executed and a select list object is sent with the initial page payload.

@@ -10,6 +10,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     const posttype = actPostsData.post_type;
     const initial_window_start = actPostsData.initial_window_start;
     const select_list = actPostsData.select_list;
+    const nonce = actPostsData.nonce;
+console.log('nonce: ', nonce);
+console.log('select_list length: ', select_list.length);
 console.log('initial_window_start: ' , initial_window_start);
 console.log('restUrl:', restUrl);
 console.log('posttype: ', posttype);
@@ -416,39 +419,35 @@ console.log('posttype: ', posttype);
         }
         return filteredPosts;
     }
-    function filterSearch(filteredPosts, filter) {
-        // Filter by search query
-        // If search query is enclosed in " " or ' ' search for the exact string in the post excerpt, content or title
-        // otherwise split filter.search into words and match if any word matches
-        if (filter.search && filter.search.trim() !== '') {
+    async function filterSearch(posts, filter){
+        let filteredPosts = posts;
+        if ( filter.search && filter.search.trim() !== '' ){
             console.log('Search query:', filter.search);
-            let exactSearch = '';
-            if ( filter.search.startsWith('"') && filter.search.endsWith('"') ) {
-                exactSearch = filter.search.slice(1, -1).toLowerCase();
-            } else if ( filter.search.startsWith("'") && filter.search.endsWith("'") ) {
-                exactSearch = filter.search.slice(1, -1).toLowerCase();
-            }
-            if ( exactSearch.length > 0 ){
-                console.log('Exact search:', exactSearch);
-                filteredPosts = filteredPosts.filter(post => {
-                    return post.title.rendered.toLowerCase().indexOf(exactSearch)>= 0 ||
-                           post.excerpt.rendered.toLowerCase().indexOf(exactSearch)>= 0 ||
-                           post.content.rendered.toLowerCase().indexOf(exactSearch)>= 0;
-                });
-            } else {
-                const searchWords = filter.search.trim().split(/\s+/);
-                for(let i = 0; i < searchWords.length; i++) {
-                    searchWords[i] = searchWords[i].toLowerCase();
+            // Now call AJAX backend search
+            filteredPosts = await fetch('/wp-admin/admin-ajax.php', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8'
+                },
+                body: new URLSearchParams({
+                    action: 'act_posts_search',
+                    search: filter.search,
+                    nonce: nonce,
+                    post_type: posttype
+                })
+            })
+            .then(async res => {
+                //console.log('AJAX search response status:', res.status);
+                if (!res.ok) {
+                    throw new Error(`HTTP error! Status: ${res.status}`);
                 }
-                console.log('Search words:', searchWords);
-                filteredPosts = filteredPosts.filter(post => {
-                    return searchWords.some(word => {
-                        return post.title.rendered.toLowerCase().includes(word) ||
-                               post.excerpt.rendered.toLowerCase().includes(word) ||
-                               post.content.rendered.toLowerCase().includes(word);
-                    });
-                });
-            }
+                let result = await res.json();
+                //console.log('AJAX search result:', typeof(result), result);
+                return result.data;
+            }).catch(err => {
+                console.error('AJAX search error:', err);
+                return null;
+            });
         }
         return filteredPosts;
     }
@@ -517,7 +516,7 @@ console.log('posttype: ', posttype);
             while(fetchbusy){
                 console.log('Waiting for 1/10 sec');
                 await fetch_delay(100);
-                console.log('Back from wait');
+                console.log('Back from wait continue_fetch ' + continue_fetch + ' fetchbusy ' + fetchbusy);
             }
             resolve();
         });
@@ -538,14 +537,15 @@ console.log('posttype: ', posttype);
     let start_page = 0;
     let page = 1;
     async function fetchFilteredPosts(index, filter) {
-        console.log('fetchFilteredPosts');
+        //console.log('fetchFilteredPosts index length: ' + index.length + ' typeof(index) ', typeof(index));
         continue_fetch = 1;
         fetchbusy = 1;
         allposts = [];
         initialisedisplay();
         subindex = filterCategory(index, filter);
+        //console.log('Category filtered index length: ' + subindex.length + ' typeof(subindex): ' + typeof(subindex));
         subindex = sortposts(subindex, filter);
-        console.log('subindex length: ' + subindex.length);
+        //console.log('subindex length: ' + subindex.length);
         if ( subindex.length < 30 && filter.sortBy === 'author'){
             let authors = [];
             for(let sub of subindex){
@@ -555,6 +555,7 @@ console.log('posttype: ', posttype);
             console.log('sub authors: ', authors);
         }
         start_page = 0;
+        page = 1;
         if ( subindex.length === 0 ) {
             console.log('No posts found for selected categories');
         } else {
@@ -565,7 +566,8 @@ console.log('posttype: ', posttype);
     }
     async function fetch_next_block_posts(){
         let apiUrl = '';
-
+//console.log('fetch_next_block_posts start_page: ' + start_page + ' page: ' + page);
+//console.log('subindex length: ' + subindex.length);
         let subids = [];
         let sub_index_entries = {};
         for( let i = 0; i < BLOCK_LENGTH; i++){
@@ -596,7 +598,6 @@ console.log('posttype: ', posttype);
             console.log('about to call seteventdates sub_index_entries: ', sub_index_entries);
             posts = seteventdates(posts, sub_index_entries);
         }
-        posts = filterSearch(posts, filter);
         posts = sortposts(posts, filter);
         console.log('Fetched posts:', posts.length);
         allposts = allposts.concat(posts);
@@ -604,7 +605,6 @@ console.log('posttype: ', posttype);
         if ( selectedCount ){
             selectedCount.textContent = allposts.length;
         }
-        //updateCategoryCounts(allposts);
         if ( continue_fetch){
             notifymoreposts();
         }
@@ -675,6 +675,7 @@ console.log('posttype: ', posttype);
     }   
     if ( categorySelect ){ 
         categorySelect.addEventListener('change', async function() {
+            console.log('Search selection changed');
             await stopfetch();
             filter = getFilterObject();
             console.log('Category selection changed, filter:', filter);
@@ -687,7 +688,11 @@ console.log('posttype: ', posttype);
             await stopfetch();
             filter = getFilterObject();
             console.log('Search input changed, filter:', filter);
-            await fetchFilteredPosts(postindex, filter);
+            postindex = await filterSearch(select_list, filter);
+            if ( postindex ){
+                console.log('Search filtered index length: ', postindex.length, ' typeof: ', typeof(postindex));
+                await fetchFilteredPosts(postindex, filter);
+            }
         });
     }
     if ( sortSelect ){

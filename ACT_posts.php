@@ -80,6 +80,7 @@ class ACT_Posts_Plugin {
      */
     public function __construct() {
         add_action( 'init', array( $this, 'register_shortcode' ) );
+        $this->register_ajax_actions(); // <-- Add this line
     }
 
     /**
@@ -214,6 +215,99 @@ class ACT_Posts_Plugin {
             default:
                 return $this->get_other_select_list($post_type);
         }
+    }
+    private function search_posts($search_term){
+        global $wpdb;
+        if ( empty($search_term) ){
+            return null;
+        }
+        // Support for quoted "exact phrase" search and multi-word search
+        $search_term = stripslashes($search_term);
+        $search_term = trim($search_term);
+        $exact_search = '';
+        if (
+            (substr($search_term, 0, 1) === '"' && substr($search_term, -1) === '"') ||
+            (substr($search_term, 0, 1) === "'" && substr($search_term, -1) === "'")
+        ) {
+            $exact_search = strtolower(substr($search_term, 1, -1));
+        }
+
+        $where_sql = '';
+        $where_args = array();
+
+        if (!empty($exact_search)) {
+            // Exact phrase search in title or content
+            $like_term = '%' . $wpdb->esc_like($exact_search) . '%';
+            $where_sql = "(LOWER(p.post_title) LIKE %s OR LOWER(p.post_content) LIKE %s)";
+            $where_args[] = $like_term;
+            $where_args[] = $like_term;
+        } else {
+            // Multi-word search: match any word in title or content
+            $search_words = preg_split('/\s+/', $search_term);
+            $where_clauses = array();
+            foreach ($search_words as $word) {
+                $word = strtolower($word);
+                $like_word = '%' . $wpdb->esc_like($word) . '%';
+                $where_clauses[] = "(LOWER(p.post_title) LIKE %s OR LOWER(p.post_content) LIKE %s)";
+                $where_args[] = $like_word;
+                $where_args[] = $like_word;
+            }
+            $where_sql = implode(' OR ', $where_clauses);
+        }
+        $query = $wpdb->prepare(
+            "SELECT p.ID, p.post_date, p.post_author, GROUP_CONCAT(t.term_id) AS category_ids
+            FROM {$wpdb->prefix}posts p
+            LEFT JOIN {$wpdb->prefix}term_relationships tr ON tr.object_id = p.ID
+            LEFT JOIN {$wpdb->prefix}term_taxonomy t ON t.term_taxonomy_id = tr.term_taxonomy_id AND t.taxonomy = 'category'
+            WHERE p.post_status = 'publish' 
+            AND p.post_type = 'post'
+            AND ($where_sql)
+            GROUP BY p.ID, p.post_date, p.post_author
+            ORDER BY p.post_date DESC",
+            ...$where_args
+        );
+        $results = $wpdb->get_results($query, ARRAY_A);
+        $select_list = null;
+        if ( !empty($results)){
+            foreach($results as $row){
+                $select_list[] = array(
+                    'id' => (int) $row['ID'],
+                    'date' => $row['post_date'],
+                    'author' => (int) $row['post_author'],
+                    'categories' => !empty($row['category_ids']) ? array_map('intval', explode(',', $row['category_ids'])) : array(),
+                );
+            }
+        }
+        return $select_list;
+    }
+    /**
+     * AJAX handler for searching posts.
+     */
+    public function ajax_search_posts() {
+        error_log('ajax_search_posts called');
+        // Check nonce for security
+        check_ajax_referer( 'act_posts_action', 'nonce' );
+
+        // Get the search term from the AJAX request
+        $search_term = isset($_POST['search']) ? sanitize_text_field($_POST['search']) : '';
+error_log('Search term: ' . $search_term);
+        // Call the search_posts method
+        $results = $this->search_posts($search_term);
+if ( $results === null ){
+    error_log('Search returned null (no search term)');
+} else {
+    error_log('Search returned ' . count($results) . ' results');
+}
+        // Return JSON response
+        wp_send_json_success($results);
+    }
+
+    /**
+     * Register AJAX actions for search_posts.
+     */
+    public function register_ajax_actions() {
+        add_action('wp_ajax_act_posts_search', array($this, 'ajax_search_posts'));
+        add_action('wp_ajax_nopriv_act_posts_search', array($this, 'ajax_search_posts'));
     }
     private function show_post_controls($initial_category_ids, $categories, $sortby, $sortorder){
         $category_counts = $this->get_category_post_counts_lookup();
@@ -452,7 +546,7 @@ class ACT_Posts_Plugin {
         error_log('select_list count: ' . count($select_list) );
         $localized_data = array(
             'rest_url'           => get_rest_url() . 'wp/v2/' . $post_type,
-            'nonce'              => wp_create_nonce( 'wp_rest' ), // For future authenticated requests if needed
+            'nonce'              => wp_create_nonce( 'act_posts_action' ), // For future authenticated requests if needed
             //'posts_per_page'     => isset( $atts['posts_per_page'] ) ? (int) $atts['posts_per_page'] : 100,
             'initial_category_ids'=> isset( $atts['initial_category_ids'] ) ? $atts['initial_category_ids'] : '',
             'initial_sort_by'    => isset( $atts['initial_sort_by'] ) ? $atts['initial_sort_by'] : 'date',
