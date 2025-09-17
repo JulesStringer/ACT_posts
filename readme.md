@@ -8,6 +8,9 @@ This plugin provides a shortcode which can be configured to either:
        + Date (newset first)
        + Date (oldest first)
        + Author
+   + search posts for a free text string which my be either:
+      + Exactly matched by putting the string in quotes
+      + Treated as separate words any of which can be matched
 
 + Display all posts relating to a preconfigured category in descending date order
 + Display custom post types, with special supports for:
