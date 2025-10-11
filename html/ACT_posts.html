@@ -52,6 +52,9 @@
                     <li>Events - with reference date</li>
                 </ul>
             </li>
+            <li>
+                Other custom post types with support for select ACF fields
+            </li>
         </ul>
         <h2>Displaying posts for a single category</h2>
         <p>It is intended that each activity page will have a posts section for posts related to that category.
@@ -113,18 +116,39 @@
                 [act_posts post_type=event]
             </code>
         </pre>
+        <h2>Custom posts - support for select fields</h2>
+        <p>Any select fields defined for a custom post type are used to form a control block with select fields.
+            The select fields are populated from the ACF field definition.
+            Select fields are displayed in the order they are defined in the ACF field group.
+            If you wish to re-order fields in the ACF field group, these can be dragged to the desired order, then the changes saved.
+            How select fields are displayed depends on multiple select flag. Those with the multiple select flag set are diplsayed as a multiple select box.
+        </p>
+        <p>Initial values can be selected for custom post selects by using the field name as key and one or more url encoded initial values</p>
+        <p>Examples:</p>
+       <h3>Custom post with control block</h3> 
+        <pre>
+            <code>
+                [act_posts post_type=act-stories has_controls=yes]
+            </code>
+        </pre>
+        <h3>Custom post with select field with initialisation</h3>
+        <pre>
+            <code>
+                [act_posts post_type=act-stories has_controls=yes group=Energy classification=Cutting%20out%20waste,Efficiency ]
+            </code>
+        </pre>
         <h2>Full set of short code parameters</h2>
         <p>The full set of short code parameters are given in the following table:</p>
         <table>
-            <tr><th>Parameter</th><th>Description</th></tr>
-            <tr><td>category</td><td>Category ID,slug, or name. Can also be a comma separated list of these</td></tr>
-            <tr><td>sort_by</td><td>Choice of field to sort by - options are date and author</td></tr>
-            <tr><td>sort_order</td><td>Choice of sort order - <ul><li>desc - descending</li><li>asc - ascending</li></ul></td></tr>
-            <tr><td>excerpt_length</td><td>Default character limit for fallback excerpt</td></tr>
-            <tr><td>post_type</td><td>Defaults to posts, can be team, event or any custom post type which is handled like a post</td></tr>
-            <tr><td>has_controls</td><td>Determines if a control panel is displayed before the posts</td></tr>
-            <tr><td>window_start</td><td>Reference date for events (not normally set)</td></tr>
-            <tr><td>prompt</td><td>Prompt to appear before reference date (default Events from:)</td></tr>
+            <tr><th>Parameter</th><td>Applies to</td><th>Description</th></tr>
+            <tr><td>category</td><td>posts</td><td>Category ID,slug, or name. Can also be a comma separated list of these</td></tr>
+            <tr><td>sort_by</td><td></td><td>Choice of field to sort by - options are date and author</td></tr>
+            <tr><td>sort_order</td><td></td><td>Choice of sort order - <ul><li>desc - descending</li><li>asc - ascending</li></ul></td></tr>
+            <tr><td>excerpt_length</td><td>All</td><td>Default character limit for fallback excerpt</td></tr>
+            <tr><td>post_type</td><td>All</td><td>Defaults to posts, can be team, event or any custom post type which is handled like a post</td></tr>
+            <tr><td>has_controls</td><td>All</td><td>Determines if a control panel is displayed before the posts</td></tr>
+            <tr><td>window_start</td><td>event</td><td>Reference date for events (not normally set)</td></tr>
+            <tr><td>prompt</td><td>event</td><td>Prompt to appear before reference date (default Events from:)</td></tr>
         </table>
         <h1>Source code repository</h1>
         <p>The code for this plugin is stored in <a href="https://github.com/JulesStringer/ACT_posts" target="_blank" >https://github.com/JulesStringer/ACT_posts</a></p>

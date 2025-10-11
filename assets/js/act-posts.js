@@ -11,6 +11,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     const initial_window_start = actPostsData.initial_window_start;
     const select_list = actPostsData.select_list;
     const nonce = actPostsData.nonce;
+    const initial_values = actPostsData.initial_values;
+    console.log('actPostsData:', actPostsData);
 console.log('nonce: ', nonce);
 console.log('select_list length: ', select_list.length);
 console.log('initial_window_start: ' , initial_window_start);
@@ -82,6 +84,37 @@ console.log('posttype: ', posttype);
             }
         }
         return selected;
+    }
+    /*
+     * Initialise selector values for custom post types
+    */
+    function initCustomSelects(initial_values){
+        if ( custom_filter_controls && initial_values ){
+            //console.log('Initialising custom filter controls initial_values: ', initial_values );
+            for(let select of custom_filter_controls){
+                let fieldname = select.getAttribute('id');
+                //console.log('select: ', select, ' fieldname: ', fieldname);
+                if ( initial_values[fieldname] ){
+                    let values = initial_values[fieldname];
+                    //console.log ('initialising field:' + fieldname + ' with values: ', values);;
+                    if ( !Array.isArray(values)){
+                        values = [values];
+                    }
+                    for(let option of select.options){
+                        //console.log('considering option: ', option.value);
+                        if ( values.includes(option.value)) {
+                            option.selected = true;
+                            //console.log('Selecting option:', option.value);
+                        } else if (option.value === '') {
+                            option.selected = false; // Ensure 'All' option is not selected
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if ( custom_filter_controls ){
+        initCustomSelects(initial_values);
     }
     /*
      * Initialise sort selection from values set in PHP

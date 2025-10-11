@@ -87,7 +87,7 @@ class ACT_Posts_Plugin {
      * Register the [act_posts] shortcode.
      */
     public function register_shortcode() {
-        add_shortcode( 'act_posts', array( $this, 'render_posts_grid_shortcode' ) );
+        add_shortcode( 'act_posts', array( $this, 'render_act_posts_grid_shortcode' ) );
     }
     /**
      * Executes a specific SQL query to get a count of published posts per category.
@@ -522,20 +522,163 @@ if ( $results === null ){
             echo "</table>";
         }
     }
-    /**
-     * Render the HTML for the posts grid.
-     * This function should only output the container and controls.
-     * Actual post fetching and rendering will be done via JavaScript/REST API.
-     *
-     * @param array $atts Shortcode attributes.
-     * @return string HTML output.
-     */
-    public function render_posts_grid_shortcode( $atts ) {
+    private function output_post_grid(){
+        ?>
+            <div id="act-posts-grid-container" class="act-posts-grid-container">
+            </div>
 
+            <div id="act-posts-more" class="act-posts-more" style="display: none;">
+                <button id="act-posts-load-more-button" class="act-posts-load-more-button">
+                    <?php esc_html_e( 'Load More Posts', 'act-posts' ); ?>
+                </button>
+            </div>
+            <div id="act-posts-infinite-scroll-trigger" class="act-posts-infinite-scroll-trigger"></div>
+
+            <div id="act-posts-loading-spinner" class="act-posts-loading-spinner" style="display: none;">
+                <p><?php esc_html_e( 'Loading more posts...', 'act-posts' ); ?></p>
+            </div>
+
+            <div id="act-posts-no-results" class="act-posts-no-results" style="display: none;">
+                <p><?php esc_html_e( 'No posts found matching your criteria.', 'act-posts' ); ?></p>
+            </div>
+
+        </div><?php
+    }
+    private function render_event_grid_shortcode( $atts ) {
+        // Placeholder for future event-specific shortcode rendering
         // --- Determine initial date window for 'event' post type ---
         //$initial_window_start = new DateTime(); // Default to current time
         $initial_window_start = new DateTime('now', new DateTimeZone(wp_timezone_string())); // Explicitly set to site's local time
+        // Parse shortcode attributes (e.g., to set default category, sort options, excerpt length)
+        $atts = shortcode_atts( array(
+            'sort_by'         => 'date', // 'date', 'author'
+            'sort_order'      => 'desc', // 'asc', 'desc'
+            'excerpt_length'  => 150, // Default character limit for fallback excerpt
+            //'posts_per_page'  => 100, // Allow shortcode to override global default
+            'post_type'       => 'event',      // rest api schema to fetch
+            'has_controls'    => 'yes',  // determines if controls are displayed
+            // New attributes for 'event' post type:
+            'window_start'    => '',          // Initial window start datetime (e.g., 'now', '2025-01-01 00:00:00')
+            'prompt'          => 'Events from:'
+        ), $atts, 'act_posts' );
 
+        $prompt = $atts['prompt'];
+        // If window_start is provided in shortcode or URL
+        if ( ! empty( $_GET['window_start'] ) ) {
+            $initial_window_start = new DateTime( sanitize_text_field( $_GET['window_start'] ) );
+        } elseif ( ! empty( $atts['window_start'] ) && $atts['window_start'] !== 'now' ) {
+            $initial_window_start = new DateTime( sanitize_text_field( $atts['window_start'] ) );
+        }
+        // Store the determined attributes in the class property to be accessible by enqueue_scripts
+        $this->current_shortcode_atts = array(
+            'initial_sort_by'      => $atts['sort_by'],
+            'initial_sort_order'   => $atts['sort_order'],
+            'excerpt_length'       => $atts['excerpt_length'],
+            //'posts_per_page'       => $atts['posts_per_page'],
+            'post_type'            => 'event',
+            'initial_window_start' => $initial_window_start->format( DateTime::ATOM ),
+        );
+        $this->enqueue_scripts($this->current_shortcode_atts);
+        ob_start(); // Start output buffering
+            ?>
+            <div class="act-posts-grid-wrapper">
+                <?php
+        if ( $atts['has_controls'] === 'yes'){
+            // Call the new function for event controls
+            $this->show_event_controls(
+                $initial_window_start->format( 'Y-m-d\TH:i' ), // HTML datetime-local format
+                $prompt,
+            );
+        }
+        $this->output_post_grid();
+        return ob_get_clean(); // Return the buffered HTML
+    }
+    private function render_team_grid_shortcode( $atts ) {
+        // Placeholder for future team-specific shortcode rendering
+        $atts = shortcode_atts( array(
+            'sort_by'         => 'date', // 'date', 'author'
+            'sort_order'      => 'desc', // 'asc', 'desc'
+            'excerpt_length'  => 150, // Default character limit for fallback excerpt
+            'post_type'       => 'team',      // rest api schema to fetch
+            'has_controls'    => 'no',  // determines if controls are displayed
+        ), $atts, 'act_posts' );
+        // Store the determined attributes in the class property to be accessible by enqueue_scripts
+        $this->current_shortcode_atts = array(
+            'initial_sort_by'      => $atts['sort_by'],
+            'initial_sort_order'   => $atts['sort_order'],
+            'excerpt_length'       => $atts['excerpt_length'],
+            'post_type'            => 'team',
+        );
+        $this->enqueue_scripts($this->current_shortcode_atts);
+        ob_start(); // Start output buffering
+            ?>
+            <div class="act-posts-grid-wrapper">
+                <?php
+        if ( $atts['has_controls'] === 'yes'){
+                // Get list of custom post fields
+            $this->show_custom_controls($post_type);
+        }
+        $this->output_post_grid();
+        return ob_get_clean(); // Return the buffered HTML
+    }
+    private function render_custom_grid_shortcode( $post_type, $atts ) {
+        // Placeholder for future custom post type-specific shortcode rendering
+        // Parse shortcode attributes (e.g., to set default category, sort options, excerpt length)
+        $default_atts = array(
+            'excerpt_length'  => 150, // Default character limit for fallback excerpt
+            //'posts_per_page'  => 100, // Allow shortcode to override global default
+            'post_type'       => $post_type,      // rest api schema to fetch
+            'has_controls'    => 'yes',  // determines if controls are displayed
+        );
+        $fields = $this->get_acf_select_fields_by_post_type($post_type);
+        if ( count($fields) > 0 ){
+            $default_atts['has_controls'] = 'yes';
+            foreach($fields as $field){
+                $name = $field['name'];
+                $default_atts['initial_'.$name] = ''; // default to no filter
+            }
+        } else {
+            $default_atts['has_controls'] = 'no';
+        }
+        $atts = shortcode_atts( $default_atts, $atts, 'act_posts' );
+
+        $initial_values = array();
+        foreach($fields as $field){
+            $name = $field['name'];
+            if ( ! empty( $_GET[$name] ) ) {
+                // Ensure $_GET value is always an array
+                $url_values = is_array( $_GET[$name] ) ? $_GET[$name] : explode( ',', $_GET[$name] );
+                $initial_values[$name] = array_map( 'sanitize_text_field', $url_values );
+            } elseif ( ! empty( $atts['initial_'.$name] ) ) {
+                $shortcode_values = explode( ',', $atts['initial_'.$name] );
+                $shortcode_values = array_map( 'urldecode', $shortcode_values ); 
+                $initial_values[$name] = array_map( 'trim', $shortcode_values );
+            } else {
+                $initial_values[$name] = array(); // No filter
+            }
+        }
+        // Store the determined attributes in the class property to be accessible by enqueue_scripts
+        $this->current_shortcode_atts = array(
+            'initial_sort_by'      => $atts['sort_by'],
+            'initial_sort_order'   => $atts['sort_order'],
+            'excerpt_length'       => $atts['excerpt_length'],
+            'post_type'            => $post_type,
+            'initial_values'       => $initial_values,
+        );
+        $this->enqueue_scripts($this->current_shortcode_atts);
+        ob_start(); // Start output buffering
+            ?>
+            <div class="act-posts-grid-wrapper">
+                <?php
+        if ( $atts['has_controls'] === 'yes'){
+            // Get list of custom post fields
+            $this->show_custom_controls($post_type);
+        }
+        $this->output_post_grid();
+        return ob_get_clean(); // Return the buffered HTML
+    }
+    private function render_posts_grid_shortcode( $atts ) {
+        // Placeholder for future posts-specific shortcode rendering
         // Parse shortcode attributes (e.g., to set default category, sort options, excerpt length)
         $atts = shortcode_atts( array(
             'category'        => '', // ID, slug, or comma-separated list for initial shortcode filter
@@ -545,20 +688,7 @@ if ( $results === null ){
             //'posts_per_page'  => 100, // Allow shortcode to override global default
             'post_type'       => 'posts',      // rest api schema to fetch
             'has_controls'    => 'yes',  // determines if controls are displayed
-            // New attributes for 'event' post type:
-            'window_start'    => '',          // Initial window start datetime (e.g., 'now', '2025-01-01 00:00:00')
-            'prompt'          => 'Events from:'
         ), $atts, 'act_posts' );
-
-        $prompt = $atts['prompt'];
-
-        $post_type = sanitize_key( $atts['post_type'] ); // Sanitize post type
-        // If window_start is provided in shortcode or URL
-        if ( ! empty( $_GET['window_start'] ) ) {
-            $initial_window_start = new DateTime( sanitize_text_field( $_GET['window_start'] ) );
-        } elseif ( ! empty( $atts['window_start'] ) && $atts['window_start'] !== 'now' ) {
-            $initial_window_start = new DateTime( sanitize_text_field( $atts['window_start'] ) );
-        }
 
         // Determine the initial category ID for the REST API
         $initial_category_ids = array();
@@ -592,61 +722,54 @@ if ( $results === null ){
             }
         }
         $initial_category_ids = array_unique( $initial_category_ids ); // Ensure unique IDs
+
         // Store the determined attributes in the class property to be accessible by enqueue_scripts
         $this->current_shortcode_atts = array(
             'initial_category_ids' => $initial_category_ids,
             'initial_sort_by'      => $atts['sort_by'],
             'initial_sort_order'   => $atts['sort_order'],
             'excerpt_length'       => $atts['excerpt_length'],
-            //'posts_per_page'       => $atts['posts_per_page'],
-            'post_type'            => $atts['post_type'],
-            'initial_window_start' => $initial_window_start->format( DateTime::ATOM ),
+            'post_type'            => $posts,
         );
         $this->enqueue_scripts($this->current_shortcode_atts);
-                            
         ob_start(); // Start output buffering
             ?>
             <div class="act-posts-grid-wrapper">
                 <?php
         if ( $atts['has_controls'] === 'yes'){
-            if ( $atts['post_type'] === 'event' ){
-                // Call the new function for event controls
-                $this->show_event_controls(
-                    $initial_window_start->format( 'Y-m-d\TH:i' ), // HTML datetime-local format
-                    $prompt,
-                );
-            } else if ( $atts['post_type'] === 'posts' ){
                 // Get all categories
                 $categories = get_categories( array(
                     'hide_empty' => true, // Only show categories with posts
                 ) );
                 $this->show_post_controls($initial_category_ids, $categories, $atts['sort_by'], $atts['sort_order']);            
-            } else {
-                // Get list of custom post fields
-                $this->show_custom_controls($post_type);
-            }
         }
-        ?>
-                <div id="act-posts-grid-container" class="act-posts-grid-container">
-                </div>
-
-                <div id="act-posts-more" class="act-posts-more" style="display: none;">
-                    <button id="act-posts-load-more-button" class="act-posts-load-more-button">
-                        <?php esc_html_e( 'Load More Posts', 'act-posts' ); ?>
-                    </button>
-                </div>
-                <div id="act-posts-infinite-scroll-trigger" class="act-posts-infinite-scroll-trigger"></div>
-
-                <div id="act-posts-loading-spinner" class="act-posts-loading-spinner" style="display: none;">
-                    <p><?php esc_html_e( 'Loading more posts...', 'act-posts' ); ?></p>
-                </div>
-
-                <div id="act-posts-no-results" class="act-posts-no-results" style="display: none;">
-                    <p><?php esc_html_e( 'No posts found matching your criteria.', 'act-posts' ); ?></p>
-                </div>
-
-            </div><?php
+        $this->output_post_grid();
         return ob_get_clean(); // Return the buffered HTML
+    }
+    /**
+     * Render the HTML for the posts grid.
+     * This function should only output the container and controls.
+     * Actual post fetching and rendering will be done via JavaScript/REST API.
+     *
+     * @param array $atts Shortcode attributes.
+     * @return string HTML output.
+     */
+    public function render_act_posts_grid_shortcode( $atts ) {
+
+        if ( ! isset( $atts['post_type'] ) ) {
+            $atts['post_type'] = 'posts'; // Default to 'posts' if not specified
+        }
+        $post_type = sanitize_key( $atts['post_type'] ); // Sanitize post type
+        switch ( $post_type ) {
+            case 'event':
+                return $this->render_event_grid_shortcode( $atts );
+            case 'team':
+                return $this->render_team_grid_shortcode( $atts );
+            case 'posts':
+                return $this->render_posts_grid_shortcode( $atts );
+            default:
+                return $this->render_custom_grid_shortcode( $post_type, $atts );
+        }
     }
     /**
      * Enqueue plugin scripts and styles.
@@ -692,7 +815,7 @@ if ( $results === null ){
             // New attributes for 'event' type
             'initial_window_start' => isset( $atts['initial_window_start'] ) ? $atts['initial_window_start'] : '',
             'initial_window_end'   => isset( $atts['initial_window_end'] ) ? $atts['initial_window_end'] : '',
-
+            'initial_values'      => isset( $atts['initial_values'] ) ? $atts['initial_values'] : array(),
             'home_url'           => home_url(), // Useful for relative URLs or site root
             'site_rest_url'      => get_rest_url(), // Full site REST base URL for other endpoints
             'post_type'          => $post_type,    // type of post to fetch     
