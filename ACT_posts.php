@@ -635,7 +635,7 @@ if ( $results === null ){
             $default_atts['has_controls'] = 'yes';
             foreach($fields as $field){
                 $name = $field['name'];
-                $default_atts['initial_'.$name] = ''; // default to no filter
+                $default_atts[$name] = ''; // default to no filter
             }
         } else {
             $default_atts['has_controls'] = 'no';
@@ -649,8 +649,8 @@ if ( $results === null ){
                 // Ensure $_GET value is always an array
                 $url_values = is_array( $_GET[$name] ) ? $_GET[$name] : explode( ',', $_GET[$name] );
                 $initial_values[$name] = array_map( 'sanitize_text_field', $url_values );
-            } elseif ( ! empty( $atts['initial_'.$name] ) ) {
-                $shortcode_values = explode( ',', $atts['initial_'.$name] );
+            } elseif ( ! empty( $atts[$name] ) ) {
+                $shortcode_values = explode( ',', $atts[$name] );
                 $shortcode_values = array_map( 'urldecode', $shortcode_values ); 
                 $initial_values[$name] = array_map( 'trim', $shortcode_values );
             } else {
