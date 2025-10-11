@@ -26,6 +26,8 @@ console.log('posttype: ', posttype);
     const noResultsMessage = document.getElementById('act-posts-no-results');
     const selectedCount = document.getElementById('act-posts-selected');
     const eventWindowStart = document.getElementById('event-window-start');
+    const custom_filter_controls = document.querySelectorAll('.custom-filter-select');
+
     const morepostsDiv = document.getElementById('act-posts-more');
     const loadMoreButton = document.getElementById('act-posts-load-more-button');
     const BLOCK_LENGTH = 10; // Number of posts to display per block
@@ -112,20 +114,78 @@ console.log('posttype: ', posttype);
             return { by: 'title', order: 'asc'};
         }
     }
+    /**
+     * Reads the values from the custom select controls and returns an object
+     * containing only the filters that have a selected value (not 'All').
+     *
+     * @returns {object} An associative array of filters: { field_name: selected_value, ... }
+     */
+    function getActiveSelectFilters() {
+        const filterArray = {};
+        
+        // 1. Target the table container for efficiency
+        const table = document.querySelector('.act-custom-controls');
+
+        if (!table) {
+            console.error("Filter table not found.");
+            return filterArray;
+        }
+
+        // 2. Select all <select> elements within the table
+        const selectElements = table.querySelectorAll('select');
+
+        // 3. Iterate over the elements to build the filter array
+        for(const selectElement of selectElements) {
+            // The field name is used as the select element's ID
+            const fieldName = selectElement.id;
+            let selectedValue;
+
+            if (selectElement.multiple) {
+                // --- Multi-select logic ---
+                // Use selectedOptions property to get all selected options
+                // Convert the HTMLCollection to an Array and map to get the values
+                const selectedValues = Array.from(selectElement.selectedOptions)
+                                            .map(option => option.value);
+                // Filter out any default empty values (like the 'All' option, if selected in a multi-select)
+                selectedValue = selectedValues.filter(value => value !== '');
+
+                // If the user hasn't selected anything or only selected the empty option, 
+                // the filtered array will be empty.
+                if (selectedValue.length > 0 ) {
+                   filterArray[fieldName] = selectedValue;
+console.log('Multi-select field:', fieldName, 'selected values:', selectedValue);
+                }
+                
+            } else {
+                // --- Single-select logic (original) ---
+                selectedValue = selectElement.value;
+console.log('Single select field:', fieldName, 'selected value:', selectedValue);
+                if (selectedValue !== '') {
+                    filterArray[fieldName] = selectedValue;
+                }
+            }
+        }
+
+        return filterArray;
+    }
     /*
      * Get filter object from selected categories and search input
     */
     function getFilterObject() {
-        const selectedCategories = getSelectedCategories();
-        const searchQuery = ( searchInput ? searchInput.value.trim() : '');
-        const sort = getSelectedSort();
+        if ( posttype === 'posts' || posttype === 'events' || posttype === 'team'){
+            const selectedCategories = getSelectedCategories();
+            const searchQuery = ( searchInput ? searchInput.value.trim() : '');
+            const sort = getSelectedSort();
 
-        return {
-            categories: selectedCategories,
-            search: searchQuery,
-            sortBy: sort.by,
-            sortOrder: sort.order
-        };
+            return {
+                categories: selectedCategories,
+                search: searchQuery,
+                sortBy: sort.by,
+                sortOrder: sort.order
+            };
+        } else {
+            return getActiveSelectFilters();
+        }
     }
     let filter = getFilterObject();
     console.log('Initial filter:', filter);
@@ -246,6 +306,24 @@ console.log('posttype: ', posttype);
         `;
         return panelHtmlString;
     }
+    function custompanelhtml(postLink, featuredImageHtml, postTitle, summaryContent, acf){
+        panelHtmlString = `
+            <div class="post-panel">
+                <a href="${postLink}">
+                    <div class="panel-content">
+                        ${featuredImageHtml}
+                        <div class="post-text-content">
+                            <h3 class="post-title">${postTitle}</h3>
+                            <div class="post-summary">
+                                <p>${summaryContent}</p>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+        `;
+        return panelHtmlString;
+    }
     /*
      * Creates an HTML string for a single post panel based on a WordPress REST API post object.
      *
@@ -334,7 +412,7 @@ console.log('posttype: ', posttype);
             //console.log('panelHtmlString: ' + panelHtmlString);
         } else {
 //            panelHtmlString = '<div class="post-panel"><p>Post type: "' + posttype + '" not recognised by ACT_posts plugin</p></div>';
-            panelHtmlString = postpanelhtml(postLink, featuredImageHtml, postTitle, postDate, authorName, summaryContent)
+            panelHtmlString = custompanelhtml(postLink, featuredImageHtml, postTitle, summaryContent, post.acf)
         }
         // --- Convert HTML string to a DOM element ---
         const tempContainer = document.createElement('div');
@@ -397,7 +475,7 @@ console.log('posttype: ', posttype);
         } else if ( posttype === 'event'){
             r += '_embed=wp:featuredmedia,author&_fields=id,title,date,excerpt,content,link,featured_media,acf,_links,_embedded';
         } else {
-            r += '_embed=wp:featuredmedia,author&_fields=title,categories,date,excerpt,content,link,featured_media,author,_links,_embedded';
+            r += '_embed=wp:featuredmedia,author&_fields=title,excerpt,content,link,featured_media,author,_links,_embedded';
         }
         r += '&per_page= '+ BLOCK_LENGTH;
         if ( !ids ){
@@ -409,14 +487,35 @@ console.log('posttype: ', posttype);
      *
     */
    function filterCategory(posts, filter) {
+console.log('Initial posts: ' + posts.length);
         let filteredPosts = posts;
-
+console.log('Filter: ' , filter);
         // Filter by categories
-        if (filter.categories.length > 0) {
-            filteredPosts = filteredPosts.filter(post => {
-                return post.categories.some(category => filter.categories.includes(category));
-            });
+        if (filter.categories) {
+            if ( filter.categories.length > 0) {
+                filteredPosts = filteredPosts.filter(post => {
+                    return post.categories.some(category => filter.categories.includes(category));
+                });
+            }
+        } else {
+            for(let name in filter){
+                if ( name != 'categories' && name != 'search' && name != 'sortBy' && name != 'sortOrder'){
+                    console.log(filteredPosts);
+                    if ( Array.isArray(filter[name])){
+                        filteredPosts = filteredPosts.filter(post => {
+                            //console.log('post: ' + JSON.stringify(post));
+                            return post[name].length > 0 && post[name].some(target => filter[name].includes(target));
+                        });
+                    } else {
+                        filteredPosts = filteredPosts.filter(post => {
+                            return post[name] === filter[name];
+                        });
+                    }
+                    console.log(name + ' reduced posts to ' + filteredPosts.length);
+                }
+            }
         }
+console.log('Filtered posts: ' + filteredPosts.length);
         return filteredPosts;
     }
     async function filterSearch(posts, filter){
@@ -534,6 +633,35 @@ console.log('posttype: ', posttype);
         }
         return posts;
     }
+    function show_custom_counts(subindex){
+        let allcount = subindex.length;
+        for(let custom_filter_control of custom_filter_controls){
+            let counts = custom_filter_control.querySelectorAll('.act-posts-category-count');
+            let fieldname = custom_filter_control.getAttribute('id');
+            for(let count of counts){
+                let id = count.getAttribute('select-id');
+                if ( id === 'all' ){
+                    count.textContent = allcount;
+                } else {
+                    let c = 0;
+                    for( let post of subindex){
+                        if ( post[fieldname] ){
+                            if ( Array.isArray(post[fieldname]) ){
+                                if ( post[fieldname].includes(id) ){
+                                    c++;
+                                }
+                            } else {
+                                if ( post[fieldname] === id ){
+                                    c++;
+                                }
+                            }
+                        }
+                    }
+                    count.textContent = c;
+                }
+            }
+        }
+    }
     let start_page = 0;
     let page = 1;
     async function fetchFilteredPosts(index, filter) {
@@ -561,6 +689,9 @@ console.log('posttype: ', posttype);
         } else {
             console.log('subindex length: ' + subindex.length);
             fetch_next_block_posts();
+        }
+        if ( posttype !== 'event' && posttype !== 'posts' && posttype !== 'team' ){
+            show_custom_counts(subindex);
         }
         fetchbusy = 0;
     }
@@ -682,6 +813,17 @@ console.log('posttype: ', posttype);
 
             await fetchFilteredPosts(postindex, filter);
         });
+    }
+    if ( custom_filter_controls ){
+        for(let custom_filter_control of custom_filter_controls){
+            custom_filter_control.addEventListener('change', async function(){
+                await stopfetch();
+                filter = getFilterObject();
+                console.log('Selection filter changed');
+
+                await fetchFilteredPosts(postindex, filter);
+            })
+        }
     }
     if ( searchInput ){
         searchInput.addEventListener('input', async function() {

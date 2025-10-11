@@ -187,11 +187,11 @@ class ACT_Posts_Plugin {
         }
         return $select_list;
     }
-    private function get_other_select_list($post_type){
+    private function get_team_select_list(){
         global $wpdb;
         $query = "SELECT p.ID, p.post_date, p.post_author
             FROM {$wpdb->prefix}posts p
-            WHERE p.post_status = 'publish' AND p.post_type = '".$post_type."'
+            WHERE p.post_status = 'publish' AND p.post_type = 'team'
             ORDER BY p.post_date DESC";
         $results = $wpdb->get_results($query, ARRAY_A);
         $select_list = [];
@@ -206,14 +206,109 @@ class ACT_Posts_Plugin {
         }
         return $select_list;
     }
+    private function get_acf_groups_by_post_type( $post_type_slug ) {
+        $matching_groups = array();
+        
+        // 1. Get all field groups in the system
+        $all_groups = acf_get_field_groups();
+
+        // 2. Loop through each field group
+        foreach ( $all_groups as $group ) {
+            // A field group can have multiple "rule groups" (OR logic)
+            foreach ( $group['location'] as $rule_group ) {
+                // A rule group can have multiple "rules" (AND logic)
+                foreach ( $rule_group as $rule ) {
+                    
+                    // 3. Check for the specific CPT rule
+                    if ( 
+                        $rule['param']    === 'post_type' && 
+                        $rule['operator'] === '==' && 
+                        $rule['value']    === $post_type_slug 
+                    ) {
+                        // Rule found! Add the whole field group array to our results
+                        $matching_groups[] = $group;
+                        // Move to the next field group
+                        continue 3; 
+                    }
+                }
+            }
+        }
+        return $matching_groups;
+    }
+    private function get_acf_select_fields_by_post_type( $post_type ){
+       $field_groups = $this->get_acf_groups_by_post_type($post_type);
+        //error_log('Field groups matching ' . $post_type. ' : ' . var_export($field_groups, true));
+        $select_fields = [];
+        if ( ! empty( $field_groups ) ) {
+            $first_group_key = $field_groups[0]['key'];
+            //error_log('first_group_key '. $first_group_key);
+            $fields_in_group = acf_get_fields( $first_group_key );
+            foreach($fields_in_group as $field){
+                if ( $field['type'] === 'select'){
+                    $select_fields[] = $field;
+                }
+            }
+        }
+        return $select_fields;
+    }
+    private function get_custom_select_list($post_type){
+        global $wpdb;
+        $select_fields = $this->get_acf_select_fields_by_post_type( $post_type );
+        $clean_post_type = esc_sql($post_type);
+        $query = "SELECT p.ID ";
+            $joins = "";
+    
+        if ( count($select_fields) > 0 ){
+            $counter = 1;
+            foreach($select_fields as $field){
+                $field_name = esc_sql($field['name']);
+                $alias = "s{$counter}";
+                
+                // Add column to SELECT
+                $query .= ", {$alias}.meta_value AS `{$field_name}`";
+
+                // Add INNER JOIN for the postmeta table
+                $joins .= " INNER JOIN {$wpdb->prefix}postmeta AS {$alias} 
+                            ON p.ID = {$alias}.post_id 
+                            AND {$alias}.meta_key = '{$field_name}'";
+                $counter++;
+            }
+        }
+
+        $query .= " FROM {$wpdb->prefix}posts p";
+        $query .= $joins;
+        $query .= " WHERE p.post_status = 'publish' AND p.post_type = '".$post_type."'";
+        $results = $wpdb->get_results($query, ARRAY_A);
+        $select_list = [];
+        if ( !empty($results)){
+            foreach($results as $row){
+                $item = array('id' => (int) $row['ID']);
+                if ( count($select_fields) > 0 ){
+                    foreach($select_fields as $field){
+                        $field_name = $field['name'];
+                        $raw_value = isset($row[$field_name]) ? $row[$field_name] : '';
+                        if ( is_serialized($raw_value) ){
+                            $item[$field_name] = unserialize($raw_value);
+                        } else {
+                            $item[$field_name] = $raw_value;
+                        }
+                    }
+                }
+                $select_list[] = $item;
+            }
+        }
+        return $select_list;
+    }
     private function get_select_list($post_type){
         switch($post_type){
             case 'posts':
                 return $this->get_posts_select_list();
             case 'event':
                 return $this->get_event_select_list();
+            case 'team':
+                return $this->get_team_select_list();
             default:
-                return $this->get_other_select_list($post_type);
+                return $this->get_custom_select_list($post_type);
         }
     }
     private function search_posts($search_term){
@@ -378,6 +473,7 @@ if ( $results === null ){
      * Renders the controls for filtering 'event' post types (date/time picker).
      *
      * @param string $initial_window_start_html The initial start date/time for the HTML input.
+     * @param string $prompt - events from prompt
      */
     private function show_event_controls( $initial_window_start_html, $prompt) {
         ?>
@@ -389,6 +485,42 @@ if ( $results === null ){
             </div>
         </div>
         <?php
+    }
+    /**
+     * Renders the controls for filtering custom post types from custom fields of type select
+     * 
+     * @param $post_type post type from which field group is derived, and thus fields with type select
+     */
+    private function show_custom_controls($post_type){
+        // get any custom fields for post_type - doco says not reliable
+        //error_log('Fields in group: '. var_export($fields_in_group, true));
+        $select_fields = $this->get_acf_select_fields_by_post_type($post_type);
+        if ( count($select_fields) > 0){
+            echo '<table class="act-custom-controls">';
+            foreach($select_fields as $field){
+                error_log('field with type select: '. var_export($field, true));
+                $prompt = $field['label'];
+                echo '<tr class="'.$name.'-filter" >';
+                echo '<td><label for="'.$name.'" >'.$prompt.'</label></td>';
+                $name = $field['name'];
+                $choices = $field['choices'];
+                echo '<td><select id="'.$name.'" class="custom-filter-select" ';
+                if ( $field['multiple'] ){
+                    echo ' multiple size="6" ';
+                }
+                echo '>';
+                echo '<option value="" selected>All'
+                 . ' (<span class="act-posts-category-count" select-id="all"></span>)</option>';
+                foreach( $choices as $value => $label ) {
+                    $clean_value = esc_attr($value);
+                    echo '<option value="' . $clean_value . '">' . esc_html($label)
+                      . ' (<span class="act-posts-category-count" select-id="'. $clean_value . '"></span>)</option>';
+                }
+                echo "</select></td>";
+                echo "</tr>";
+            }
+            echo "</table>";
+        }
     }
     /**
      * Render the HTML for the posts grid.
@@ -483,12 +615,15 @@ if ( $results === null ){
                     $initial_window_start->format( 'Y-m-d\TH:i' ), // HTML datetime-local format
                     $prompt,
                 );
-            } else {
+            } else if ( $atts['post_type'] === 'posts' ){
                 // Get all categories
                 $categories = get_categories( array(
                     'hide_empty' => true, // Only show categories with posts
                 ) );
                 $this->show_post_controls($initial_category_ids, $categories, $atts['sort_by'], $atts['sort_order']);            
+            } else {
+                // Get list of custom post fields
+                $this->show_custom_controls($post_type);
             }
         }
         ?>
