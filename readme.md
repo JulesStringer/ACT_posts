@@ -66,21 +66,31 @@ For events the control panel consists of the reference date. The shortcode for e
 ```
     [act_posts post_type=event]
 ```
+## Other custom posts
+
+Any custom select fields can be used to present a control block
+```
+   [act_posts post_type="act-stories" has_controls=yes]
+or with initial values:
+   [act_posts post_type="act-stories" has_controls=yes group=Energy classification=Cutting%20out%20waste,Efficiency ]
+
+```
 
 ## Full set of short code parameters
 
 The full set of short code parameters are given in the following table:
 
-|Parameter|Description|
-|---------|-----------|
-|category|Category ID,slug, or name. Can also be a comma separated list of these|
-|sort_by|Choice of field to sort by - options are date and author|
-|sort_order|Choice of sort order (desc - descending, asc - ascending|
-|excerpt_length|Default character limit for fallback excerpt|
-|post_type|Defaults to posts, can be team, event or any custom post type which is handled like a post|
-|has_controls|Determines if a control panel is displayed before the posts|
-|window_start|Reference date for events (not normally set)|
-|prompt|Prompt to appear before reference date (default Events from:)|
+|Parameter|Applies to|Description|
+|---------|----------|-----------|
+|category|posts|Category ID,slug, or name. Can also be a comma separated list of these|
+|sort_by|posts|Choice of field to sort by - options are date and author|
+|sort_order|posts|Choice of sort order (desc - descending, asc - ascending|
+|excerpt_length|all|Default character limit for fallback excerpt|
+|post_type|all|Defaults to posts, can be team, event or any custom post type which is handled like a post|
+|has_controls|all|Determines if a control panel is displayed before the posts|
+|window_start|event|Reference date for events (not normally set)|
+|prompt|event|Prompt to appear before reference date (default Events from:)|
+|{select field name}|custom|Comma separated list of url encoded options to be initially selected|
 
 # Changes in this version
 12/9/2025
