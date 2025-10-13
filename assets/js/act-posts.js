@@ -668,13 +668,17 @@ console.log('Filtered posts: ' + filteredPosts.length);
     }
     function show_custom_counts(subindex){
         let allcount = subindex.length;
+        // Note the span elements in options are not supported by firefox
+        // and are not strictly html compliant, so the whole option text
+        // needs to be built to include the count.
         for(let custom_filter_control of custom_filter_controls){
-            let counts = custom_filter_control.querySelectorAll('.act-posts-category-count');
+            let options = custom_filter_control.querySelectorAll('option');
             let fieldname = custom_filter_control.getAttribute('id');
-            for(let count of counts){
-                let id = count.getAttribute('select-id');
+            for(let option of options){
+                let id = option.getAttribute('data-id');
+                let label = option.getAttribute('data-label');
                 if ( id === 'all' ){
-                    count.textContent = allcount;
+                    option.textContent = label + '(' + allcount + ')';
                 } else {
                     let c = 0;
                     for( let post of subindex){
@@ -690,7 +694,7 @@ console.log('Filtered posts: ' + filteredPosts.length);
                             }
                         }
                     }
-                    count.textContent = c;
+                    option.textContent = label + '(' + c + ')';
                 }
             }
         }
@@ -702,7 +706,11 @@ console.log('Filtered posts: ' + filteredPosts.length);
         continue_fetch = 1;
         fetchbusy = 1;
         allposts = [];
+        
         initialisedisplay();
+        // ensure that the more posts button is hidden while fetching
+        // which stops the first page being displayed twice when the first filter is applied.
+        morepostsDiv.style.display = 'none';       
         subindex = filterCategory(index, filter);
         //console.log('Category filtered index length: ' + subindex.length + ' typeof(subindex): ' + typeof(subindex));
         subindex = sortposts(subindex, filter);
@@ -715,16 +723,17 @@ console.log('Filtered posts: ' + filteredPosts.length);
             }
             console.log('sub authors: ', authors);
         }
+        if ( posttype !== 'event' && posttype !== 'posts' && posttype !== 'team' ){
+            show_custom_counts(subindex);
+        }
+        fetchbusy = 0;
+        sessionStorage.setItem('SELECT_LIST', JSON.stringify(subindex));
         start_page = 0;
         page = 1;
         if ( subindex.length === 0 ) {
             console.log('No posts found for selected categories');
         } else {
-            console.log('subindex length: ' + subindex.length);
             fetch_next_block_posts();
-        }
-        if ( posttype !== 'event' && posttype !== 'posts' && posttype !== 'team' ){
-            show_custom_counts(subindex);
         }
         fetchbusy = 0;
     }
@@ -786,6 +795,7 @@ console.log('Filtered posts: ' + filteredPosts.length);
             for (const entry of entries) {
                 if (entry.isIntersecting && continue_fetch && start_page < subindex.length) {
                     morepostsDiv.style.display = 'none';
+//console.log('Load More button in view, fetching next block of posts...');
                     await fetch_next_block_posts();
                 }
             }
@@ -800,6 +810,7 @@ console.log('Filtered posts: ' + filteredPosts.length);
         if ( continue_fetch ){
             morepostsDiv.style.display = 'none';
             if ( start_page < subindex.length ) {
+//console.log('Load More button clicked, fetching next block of posts...');
                 await fetch_next_block_posts();
             }
         }

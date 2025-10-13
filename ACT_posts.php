@@ -500,21 +500,28 @@ if ( $results === null ){
             foreach($select_fields as $field){
                 error_log('field with type select: '. var_export($field, true));
                 $prompt = $field['label'];
+                $name = $field['name'];
                 echo '<tr class="'.$name.'-filter" >';
                 echo '<td><label for="'.$name.'" >'.$prompt.'</label></td>';
-                $name = $field['name'];
                 $choices = $field['choices'];
                 echo '<td><select id="'.$name.'" class="custom-filter-select" ';
                 if ( $field['multiple'] ){
                     echo ' multiple size="6" ';
                 }
                 echo '>';
-                echo '<option value="" selected>All'
-                 . ' (<span class="act-posts-category-count" select-id="all"></span>)</option>';
+                //
+                // In order to support counts in options, the option text needs to be
+                // capable of being rebuilt in javascript, so span elements are not used.
+                //
+                echo '<option value="" data-label="All" data-id="all" selected>All</option>';
                 foreach( $choices as $value => $label ) {
                     $clean_value = esc_attr($value);
-                    echo '<option value="' . $clean_value . '">' . esc_html($label)
-                      . ' (<span class="act-posts-category-count" select-id="'. $clean_value . '"></span>)</option>';
+                    $clean_label = esc_html($label);
+                    $option = '<option value="' . $clean_value . '" ';
+                    $option .= ' data-label="'.$clean_label.'" ';
+                    $option .= ' data-id="'.$clean_value.'" ';
+                    $option .= '>' . $clean_label. '</option>';
+                    echo $option;
                 }
                 echo "</select></td>";
                 echo "</tr>";
