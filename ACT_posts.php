@@ -88,6 +88,8 @@ class ACT_Posts_Plugin {
      */
     public function register_shortcode() {
         add_shortcode( 'act_posts', array( $this, 'render_act_posts_grid_shortcode' ) );
+        add_shortcode( 'act_posts_previous', array( $this, 'act_post_previous_shortcode' ) );
+        add_shortcode( 'act_posts_next', array( $this, 'act_post_next_shortcode' ) );
     }
     /**
      * Executes a specific SQL query to get a count of published posts per category.
@@ -403,6 +405,9 @@ if ( $results === null ){
     public function register_ajax_actions() {
         add_action('wp_ajax_act_posts_search', array($this, 'ajax_search_posts'));
         add_action('wp_ajax_nopriv_act_posts_search', array($this, 'ajax_search_posts'));
+        add_action( 'wp_ajax_act_get_post_details', array($this, 'act_ajax_get_post_details' ));
+        add_action( 'wp_ajax_nopriv_act_get_post_details', array($this, 'act_ajax_get_post_details' )); // Allow for logged-out users
+
     }
     private function show_post_controls($initial_category_ids, $categories, $sortby, $sortorder){
         $category_counts = $this->get_category_post_counts_lookup();
@@ -494,7 +499,9 @@ if ( $results === null ){
     private function show_custom_controls($post_type){
         // get any custom fields for post_type - doco says not reliable
         //error_log('Fields in group: '. var_export($fields_in_group, true));
+        $docount = true;
         $select_fields = $this->get_acf_select_fields_by_post_type($post_type);
+        $select_list = $this->get_select_list($post_type);
         if ( count($select_fields) > 0){
             echo '<table class="act-custom-controls">';
             foreach($select_fields as $field){
@@ -513,18 +520,34 @@ if ( $results === null ){
                 // In order to support counts in options, the option text needs to be
                 // capable of being rebuilt in javascript, so span elements are not used.
                 //
-                echo '<option value="" data-label="All" data-id="all" selected>All</option>';
+                $option = '<option value="" data-label="All" data-id="all" selected>All';
+                if ( $docount ){
+                    $option .= '('. count($select_list) . ')';
+                }
+                $option .= '</option>';
+                echo $option;
                 foreach( $choices as $value => $label ) {
                     $clean_value = esc_attr($value);
                     $clean_label = esc_html($label);
                     $option = '<option value="' . $clean_value . '" ';
                     $option .= ' data-label="'.$clean_label.'" ';
                     $option .= ' data-id="'.$clean_value.'" ';
-                    $option .= '>' . $clean_label. '</option>';
+                    $option .= '>' . $clean_label;
+                    if ( $docount ){
+                        $c = 0;
+                        foreach($select_list as $item){
+                            if ( $item[$name] === $clean_value){
+                                $c++;
+                            }
+                        }              
+                    }
+                    $option .= '('.$c.')';
+                    $option .= '</option>';
                     echo $option;
                 }
                 echo "</select></td>";
                 echo "</tr>";
+                $docount = false;
             }
             echo "</table>";
         }
@@ -835,7 +858,81 @@ if ( $results === null ){
             $localized_data
         );
     }
+    // Define a flag to ensure the script is only enqueued and localized once.
+    static $act_nav_script_enqueued = false;
+
+    private function act_post_nav_wrapper( $direction ) {
+        global $act_nav_script_enqueued;
+        $script_handle = 'act-nav-logic';
+
+        if ( ! $act_nav_script_enqueued ) {
+            
+            // --- 1. Enqueue the common JavaScript file ---
+            wp_enqueue_script( 
+                $script_handle, 
+                plugin_dir_url( __FILE__ ) . 'assets/js/act-nav-logic.js', 
+                ['jquery'], 
+                '1.0', 
+                true // Load in the footer
+            );
+
+            // --- 2. Localize the script with the current Post ID ---
+            // This only happens once, regardless of which shortcode runs first.
+            wp_localize_script(
+                $script_handle, 
+                'ACT_NAV_DATA', // Global JS object
+                array(
+                    'current_post_id' => get_the_ID(),
+                    'ajax_url'        => admin_url( 'admin-ajax.php' ), 
+                    'nonce'           => wp_create_nonce( 'act_nav_nonce' )
+                )
+            );
+
+            $act_nav_script_enqueued = true;
+        }
+
+        // --- 3. Output a unique placeholder for this specific link ---
+        // The direction is passed via a data attribute, NOT via localization.
+        // This tells the JS which link (prev or next) to inject here.
+        $output = sprintf(
+            '<div class="act-nav-placeholder" data-direction="%d"></div>',
+            (int) $direction // Cast to int to ensure it's -1 or 1
+        );
+        
+        return $output;
+    }
+
+    // Shortcode for PREVIOUS link
+    public function act_post_previous_shortcode() {
+        return $this->act_post_nav_wrapper( -1 );
+    }
+
+    // Shortcode for NEXT link
+    public function act_post_next_shortcode() {
+        return $this->act_post_nav_wrapper( 1 );
+    }
+    public function act_ajax_get_post_details() {
+        check_ajax_referer( 'act_nav_nonce', 'nonce' );
+
+        $post_id = isset($_POST['post_id']) ? intval($_POST['post_id']) : 0;
+
+        if ( $post_id ) {
+            $post_title = get_the_title( $post_id );
+            $post_url   = get_permalink( $post_id ); // Get the canonical, pretty URL!
+
+            if ($post_url) {
+                wp_send_json_success( array(
+                    'title' => $post_title,
+                    'url'   => $post_url,
+                ) );
+            }
+        }
+        
+        wp_send_json_error( 'Post not found or invalid ID.' );
+    }
 }
+
+
 // Helper function for file modification time (for cache busting)
 if ( ! function_exists( 'file_time' ) ) {
     function file_time( $file ) {

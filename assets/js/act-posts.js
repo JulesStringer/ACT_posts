@@ -666,37 +666,59 @@ console.log('Filtered posts: ' + filteredPosts.length);
         }
         return posts;
     }
-    function show_custom_counts(subindex){
-        let allcount = subindex.length;
+    function show_custom_counts(){
         // Note the span elements in options are not supported by firefox
         // and are not strictly html compliant, so the whole option text
         // needs to be built to include the count.
+        let docount = false;
+        // form first_select_list;
+        let first_filter_control = custom_filter_controls[0];
+        let fieldname = first_filter_control.getAttribute('id');
+        console.log('select_list.length ' + select_list.length);
+        console.log('first_filter_control: ', first_filter_control);
+        console.log('first_filter_control.value: ', first_filter_control.value);
+        let sub_select_list = [];
+        if ( first_filter_control.value === ''){
+            sub_select_list = select_list;
+        } else {
+            for(let item of select_list){
+                console.log('item[' + fieldname + ' ]: ' + item[fieldname]);
+                if ( item[fieldname] === first_filter_control.value ){
+                    sub_select_list.push(item);
+                }
+            }
+        }
+        let allcount = sub_select_list.length;
+        console.log('allcount= ' + allcount);
         for(let custom_filter_control of custom_filter_controls){
             let options = custom_filter_control.querySelectorAll('option');
             let fieldname = custom_filter_control.getAttribute('id');
-            for(let option of options){
-                let id = option.getAttribute('data-id');
-                let label = option.getAttribute('data-label');
-                if ( id === 'all' ){
-                    option.textContent = label + '(' + allcount + ')';
-                } else {
-                    let c = 0;
-                    for( let post of subindex){
-                        if ( post[fieldname] ){
-                            if ( Array.isArray(post[fieldname]) ){
-                                if ( post[fieldname].includes(id) ){
-                                    c++;
-                                }
-                            } else {
-                                if ( post[fieldname] === id ){
-                                    c++;
+            if ( docount ){
+                for(let option of options){
+                    let id = option.getAttribute('data-id');
+                    let label = option.getAttribute('data-label');
+                    if ( id === 'all' ){
+                        option.textContent = label + '(' + allcount + ')';
+                    } else {
+                        let c = 0;
+                        for( let post of sub_select_list){
+                            if ( post[fieldname] ){
+                                if ( Array.isArray(post[fieldname]) ){
+                                    if ( post[fieldname].includes(id) ){
+                                        c++;
+                                    }
+                                } else {
+                                    if ( post[fieldname] === id ){
+                                        c++;
+                                    }
                                 }
                             }
                         }
+                        option.textContent = label + '(' + c + ')';
                     }
-                    option.textContent = label + '(' + c + ')';
                 }
             }
+            docount = true;
         }
     }
     let start_page = 0;
