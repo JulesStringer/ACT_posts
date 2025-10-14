@@ -674,9 +674,9 @@ console.log('Filtered posts: ' + filteredPosts.length);
         // form first_select_list;
         let first_filter_control = custom_filter_controls[0];
         let fieldname = first_filter_control.getAttribute('id');
-        console.log('select_list.length ' + select_list.length);
-        console.log('first_filter_control: ', first_filter_control);
-        console.log('first_filter_control.value: ', first_filter_control.value);
+        //console.log('select_list.length ' + select_list.length);
+        //console.log('first_filter_control: ', first_filter_control);
+        //console.log('first_filter_control.value: ', first_filter_control.value);
         let sub_select_list = [];
         if ( first_filter_control.value === ''){
             sub_select_list = select_list;
