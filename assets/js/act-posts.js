@@ -502,13 +502,13 @@ console.log('Single select field:', fieldName, 'selected value:', selectedValue)
             r += 'include=' + ids.join(',') + '&';
         }
         if ( posttype === 'posts' ){
-            r += '_embed=wp:featuredmedia,author&_fields=title,categories,date,excerpt,content,link,featured_media,author,_links,_embedded';
+            r += '_embed=wp:featuredmedia,author&_fields=id,title,categories,date,excerpt,content,link,featured_media,author,_links,_embedded';
         } else if ( posttype === 'team' ){
-            r += '_embed=wp:featuredmedia&_fields=title,date,excerpt,content,link,featured_media,_links,_embedded';
+            r += '_embed=wp:featuredmedia&_fields=id,title,date,excerpt,content,link,featured_media,_links,_embedded';
         } else if ( posttype === 'event'){
             r += '_embed=wp:featuredmedia,author&_fields=id,title,date,excerpt,content,link,featured_media,acf,_links,_embedded';
         } else {
-            r += '_embed=wp:featuredmedia,author&_fields=title,excerpt,content,link,featured_media,author,_links,_embedded';
+            r += '_embed=wp:featuredmedia,author&_fields=id,title,excerpt,content,link,featured_media,author,_links,_embedded';
         }
         r += '&per_page= '+ BLOCK_LENGTH;
         if ( !ids ){
@@ -750,6 +750,7 @@ console.log('Filtered posts: ' + filteredPosts.length);
         }
         fetchbusy = 0;
         sessionStorage.setItem('SELECT_LIST', JSON.stringify(subindex));
+        console.log('Saving SELECT_LIST in session Storage: ', subindex);
         start_page = 0;
         page = 1;
         if ( subindex.length === 0 ) {
@@ -758,6 +759,29 @@ console.log('Filtered posts: ' + filteredPosts.length);
             fetch_next_block_posts();
         }
         fetchbusy = 0;
+    }
+    // Function to sort the fetched posts to match the requested order (subids)
+    function sortByRequestedIdOrder(posts, subids) {
+        // Create a map of Post ID -> Position Index in the requested list
+        const id_to_index = {};
+        subids.forEach((id, index) => {
+            // Note: subids are usually strings, but post.id is usually a number. 
+            // Ensure consistency by using String(id) for lookup key.
+            id_to_index[String(id)] = index; 
+        });
+
+        // Sort posts based on the index of their ID in the subids array
+        return posts.sort((a, b) => {
+            const a_index = id_to_index[String(a.id)];
+            const b_index = id_to_index[String(b.id)];
+
+            // Handle cases where a post ID wasn't in the subids array (shouldn't happen)
+            if (a_index === undefined || b_index === undefined) {
+                return 0; 
+            }
+
+            return a_index - b_index;
+        });
     }
     async function fetch_next_block_posts(){
         let apiUrl = '';
@@ -776,7 +800,7 @@ console.log('Filtered posts: ' + filteredPosts.length);
         console.log('posttype: ', posttype);
         console.log('apiUrl: ', apiUrl);
 
-            //&order=${filter.sortOrder}&orderby=${filter.sortBy}`;
+        //&order=${filter.sortOrder}&orderby=${filter.sortBy}`;
         const response = await fetch(apiUrl);
         if (!response.ok) {
             throw new Error('Network response was not ok');
@@ -788,12 +812,24 @@ console.log('Filtered posts: ' + filteredPosts.length);
         if (posts.length === 0) {
             return; // No more posts to fetch
         }
+        console.log('SubIDs: ', subids);
+        posts = sortByRequestedIdOrder(posts, subids); 
         console.log('Candidate posts: ' + posts.length);
+        let ids = [];
+        for(let post of posts){
+            ids.push(post.id);
+        }
+        console.log('back from sortByRequestedIdOrder posts in order: ',ids);
         if ( posttype === 'event'){
             console.log('about to call seteventdates sub_index_entries: ', sub_index_entries);
             posts = seteventdates(posts, sub_index_entries);
         }
         posts = sortposts(posts, filter);
+        ids = [];
+        for(let post of posts){
+            ids.push(post.id);
+        }
+        console.log('back from sortposts, posts in order: ',ids);
         console.log('Fetched posts:', posts.length);
         allposts = allposts.concat(posts);
         console.log(`Fetched page ${page} of posts, total count: ${allposts.length}`);
@@ -849,6 +885,7 @@ console.log('Filtered posts: ' + filteredPosts.length);
             displaybusy = true;
             while ( lastpost < allposts.length){
                 let post = allposts[lastpost];
+                console.log('Adding post: ' + post.id);
                 const postPanel = createPostPanel(post);
                 postGridContainer.appendChild(postPanel);
                 lastpost++;
