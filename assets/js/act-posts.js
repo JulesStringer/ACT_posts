@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     console.log('actPostsData:', actPostsData);
 console.log('nonce: ', nonce);
 console.log('select_list length: ', select_list.length);
+console.log('select list: ', select_list);
 console.log('initial_window_start: ' , initial_window_start);
 console.log('restUrl:', restUrl);
 console.log('posttype: ', posttype);
@@ -144,7 +145,7 @@ console.log('posttype: ', posttype);
             if ( posttype === 'event' ){
                 return { by: 'from', order: 'asc' };
             }
-            return { by: 'title', order: 'asc'};
+            return { by: 'date', order: 'desc'};
         }
     }
     /**
@@ -508,7 +509,7 @@ console.log('Single select field:', fieldName, 'selected value:', selectedValue)
         } else if ( posttype === 'event'){
             r += '_embed=wp:featuredmedia,author&_fields=id,title,date,excerpt,content,link,featured_media,acf,_links,_embedded';
         } else {
-            r += '_embed=wp:featuredmedia,author&_fields=id,title,excerpt,content,link,featured_media,author,_links,_embedded';
+            r += '_embed=wp:featuredmedia,author&_fields=id,title,date,excerpt,content,link,featured_media,author,_links,_embedded';
         }
         r += '&per_page= '+ BLOCK_LENGTH;
         if ( !ids ){
@@ -615,10 +616,27 @@ console.log('Filtered posts: ' + filteredPosts.length);
                         }
                         break;
                     default:
-                        aValue = a[filter.sortBy];
-                        bValue = b[filter.sortBy];
+                        if ( a.date && b.date ){
+                            aValue = new Date(a.date).toISOString();
+                            bValue = new Date(b.date).toISOString();
+                            return bValue > aValue ? 1 : -1;
+                        } else {
+                            aValue = a[filter.sortBy];
+                            bValue = b[filter.sortBy];
+                        }
                 }
                 return filter.sortOrder === 'asc' ? (aValue > bValue ? 1 : -1) : (bValue > aValue ? 1 : -1);
+            });
+        } else {
+            posts.sort((a,b) => {
+                if ( a.date && b.date ){
+                    let aValue = new Date(a.date).toISOString();
+                    let bValue = new Date(b.date).toISOString();
+                    return bValue > aValue ? 1 : -1;
+                } else {
+                    return a.id < b.id ? 1 : -1;
+                }
+
             });
         }
         return posts;
@@ -734,8 +752,10 @@ console.log('Filtered posts: ' + filteredPosts.length);
         // which stops the first page being displayed twice when the first filter is applied.
         morepostsDiv.style.display = 'none';       
         subindex = filterCategory(index, filter);
+        console.log('After filterCategory, subindex length: ', subindex);
         //console.log('Category filtered index length: ' + subindex.length + ' typeof(subindex): ' + typeof(subindex));
         subindex = sortposts(subindex, filter);
+        console.log('After sortposts subindex: ', subindex);
         //console.log('subindex length: ' + subindex.length);
         if ( subindex.length < 30 && filter.sortBy === 'author'){
             let authors = [];
@@ -819,7 +839,7 @@ console.log('Filtered posts: ' + filteredPosts.length);
         for(let post of posts){
             ids.push(post.id);
         }
-        console.log('back from sortByRequestedIdOrder posts in order: ',ids);
+        console.log('back from sortByRequestedIdOrder posts in order: ',posts);
         if ( posttype === 'event'){
             console.log('about to call seteventdates sub_index_entries: ', sub_index_entries);
             posts = seteventdates(posts, sub_index_entries);
@@ -829,7 +849,7 @@ console.log('Filtered posts: ' + filteredPosts.length);
         for(let post of posts){
             ids.push(post.id);
         }
-        console.log('back from sortposts, posts in order: ',ids);
+        console.log('back from sortposts, posts in order: ',posts);
         console.log('Fetched posts:', posts.length);
         allposts = allposts.concat(posts);
         console.log(`Fetched page ${page} of posts, total count: ${allposts.length}`);

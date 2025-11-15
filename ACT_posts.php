@@ -257,7 +257,7 @@ class ACT_Posts_Plugin {
         global $wpdb;
         $select_fields = $this->get_acf_select_fields_by_post_type( $post_type );
         $clean_post_type = esc_sql($post_type);
-        $query = "SELECT p.ID ";
+        $query = "SELECT p.ID, p.post_date ";
             $joins = "";
     
         if ( count($select_fields) > 0 ){
@@ -284,7 +284,8 @@ class ACT_Posts_Plugin {
         $select_list = [];
         if ( !empty($results)){
             foreach($results as $row){
-                $item = array('id' => (int) $row['ID']);
+                $item = array('id' => (int) $row['ID'],
+                              'date' => $row['post_date']);
                 if ( count($select_fields) > 0 ){
                     foreach($select_fields as $field){
                         $field_name = $field['name'];
