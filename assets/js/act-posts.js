@@ -1,4 +1,4 @@
-// Ensure the DOM is fully loaded before running script
+ // Ensure the DOM is fully loaded before running script
 document.addEventListener('DOMContentLoaded', async function() {
     // Get localized data from PHP
     const restUrl = actPostsData.rest_url;
@@ -12,17 +12,17 @@ document.addEventListener('DOMContentLoaded', async function() {
     const select_list = actPostsData.select_list;
     const nonce = actPostsData.nonce;
     const initial_values = actPostsData.initial_values;
-    console.log('actPostsData:', actPostsData);
-console.log('nonce: ', nonce);
-console.log('select_list length: ', select_list.length);
-console.log('select list: ', select_list);
-console.log('initial_window_start: ' , initial_window_start);
-console.log('restUrl:', restUrl);
-console.log('posttype: ', posttype);
+//    console.log('actPostsData:', actPostsData);
+//console.log('nonce: ', nonce);
+//console.log('select_list length: ', select_list.length);
+//console.log('select list: ', select_list);
+//console.log('initial_window_start: ' , initial_window_start);
+//console.log('restUrl:', restUrl);
+//console.log('posttype: ', posttype);
     // DOM Elements
     const postGridContainer = document.getElementById('act-posts-grid-container');
     const categorySelect = document.getElementById('act-posts-category-select');
-    console.log('categorySelect:', categorySelect);
+//    console.log('categorySelect:', categorySelect);
     const categoryCountSpans = document.querySelectorAll('.act-posts-category-count');
     const searchInput = document.getElementById('act-posts-search-input');
     const sortSelect = document.getElementById('act-posts-sort-select');
@@ -30,6 +30,8 @@ console.log('posttype: ', posttype);
     const selectedCount = document.getElementById('act-posts-selected');
     const eventWindowStart = document.getElementById('event-window-start');
     const custom_filter_controls = document.querySelectorAll('.custom-filter-select');
+    const event_classifications = document.querySelectorAll('.event-classification');
+console.log(`event_classifications: ${event_classifications}`);
 
     const morepostsDiv = document.getElementById('act-posts-more');
     const loadMoreButton = document.getElementById('act-posts-load-more-button');
@@ -50,10 +52,10 @@ console.log('posttype: ', posttype);
     function initCategorySelect(ids){
         if ( categorySelect ){
             if ( ids && ids.length > 0 ){
-                console.log('Initial category IDs (from PHP):', ids);
+ //               console.log('Initial category IDs (from PHP):', ids);
                 for(let option of categorySelect.options){
                     if (ids.includes(option.value)) {
-                        console.log('Selecting category:', option.value);
+ //                       console.log('Selecting category:', option.value);
                         option.selected = true;
                     } else if (option.value === '') {
                         option.selected = false; // Ensure 'All Categories' is not selected
@@ -81,6 +83,21 @@ console.log('posttype: ', posttype);
             for (let option of categorySelect.options) {
                 if (option.selected && option.value !== '') {
                     selected.push(parseInt(option.value, 10));
+                }
+            }
+        }
+        return selected;
+    }
+    /*
+     * Get selected categories from selected options 
+    */
+    function getSelectedClassifications() {
+        const selected = [];
+        if ( event_classifications ){
+            for (let classification of event_classifications) {
+                if (classification.checked === true) {
+                    let name = classification.name;
+                    selected.push(name);
                 }
             }
         }
@@ -187,13 +204,13 @@ console.log('posttype: ', posttype);
                 // the filtered array will be empty.
                 if (selectedValue.length > 0 ) {
                    filterArray[fieldName] = selectedValue;
-console.log('Multi-select field:', fieldName, 'selected values:', selectedValue);
+//console.log('Multi-select field:', fieldName, 'selected values:', selectedValue);
                 }
                 
             } else {
                 // --- Single-select logic (original) ---
                 selectedValue = selectElement.value;
-console.log('Single select field:', fieldName, 'selected value:', selectedValue);
+//console.log('Single select field:', fieldName, 'selected value:', selectedValue);
                 if (selectedValue !== '') {
                     filterArray[fieldName] = selectedValue;
                 }
@@ -206,7 +223,8 @@ console.log('Single select field:', fieldName, 'selected value:', selectedValue)
      * Get filter object from selected categories and search input
     */
     function getFilterObject() {
-        if ( posttype === 'posts' || posttype === 'events' || posttype === 'team'){
+        console.log(`posttype: ${posttype}`);
+        if ( posttype === 'posts'|| posttype === 'team'){
             const selectedCategories = getSelectedCategories();
             const searchQuery = ( searchInput ? searchInput.value.trim() : '');
             const sort = getSelectedSort();
@@ -217,14 +235,25 @@ console.log('Single select field:', fieldName, 'selected value:', selectedValue)
                 sortBy: sort.by,
                 sortOrder: sort.order
             };
+        } else if ( posttype === 'event') {
+            const selectedClassifications = getSelectedClassifications();
+            console.log(`selectedClassifications was ${selectedClassifications}`);
+            const searchQuery = ( searchInput ? searchInput.value.trim() : '');
+            const sort = getSelectedSort();
+            return {
+                classifications: selectedClassifications,
+                search: searchQuery,
+                sortBy: sort.by,
+                sortOrder: sort.order
+            };
         } else {
             return getActiveSelectFilters();
         }
     }
     let filter = getFilterObject();
-    console.log('Initial filter:', filter);
+//    console.log('Initial filter:', filter);
     let userlookup = await fetchUserDisplayNamesLookup();
-    console.log('userlookup: ', userlookup);
+//    console.log('userlookup: ', userlookup);
     /*
      * Function to get author name from post object safely.
      * If author is not avaolable, returns 'Unknown Author'.
@@ -468,7 +497,7 @@ console.log('Single select field:', fieldName, 'selected value:', selectedValue)
             const usersEndpoint = 'wp/v2/users';
             
             const apiUrl = `${siteRestUrl}${usersEndpoint}`;
-            console.log('apiUrl: ', apiUrl);
+//            console.log('apiUrl: ', apiUrl);
             
             // Parameters to ensure we get all users and only relevant fields
             // 'per_page=100' fetches up to 100 users. Adjust if you have more.
@@ -525,27 +554,85 @@ console.log('Initial posts: ' + posts.length);
         let filteredPosts = posts;
 console.log('Filter: ' , filter);
         // Filter by categories
-        if (filter.categories) {
-            if ( filter.categories.length > 0) {
-                filteredPosts = filteredPosts.filter(post => {
-                    return post.categories.some(category => filter.categories.includes(category));
-                });
-            }
-        } else {
-            for(let name in filter){
-                if ( name != 'categories' && name != 'search' && name != 'sortBy' && name != 'sortOrder'){
-                    console.log(filteredPosts);
-                    if ( Array.isArray(filter[name])){
-                        filteredPosts = filteredPosts.filter(post => {
-                            //console.log('post: ' + JSON.stringify(post));
-                            return post[name].length > 0 && post[name].some(target => filter[name].includes(target));
-                        });
-                    } else {
-                        filteredPosts = filteredPosts.filter(post => {
-                            return post[name] === filter[name];
-                        });
+        if ( filter ){
+            if (filter.categories) {
+                if ( filter.categories.length > 0) {
+                    filteredPosts = filteredPosts.filter(post => {
+                        return post.categories.some(category => filter.categories.includes(category));
+                    });
+                }
+            } else if ( filter.classifications ) {
+                if ( filter.classifications.length > 0){
+                    filteredPosts = filteredPosts.filter(post => {
+                        if ( !post.classification){
+                            console.log(`post.classification not set returning true  post keys: ${Object.keys(post)}`);
+                            return true;
+                        }
+//console.log(`post.classification was ${post.classification}`);
+                        const postClassification = post.classification;// Assuming the ACF field is stored in post.acf.classification
+console.log(`Postclassification: ${postClassification}`);
+                        let includes_ACT = postClassification.includes('ACT');
+                        let includes_CC = postClassification.includes('CC');
+                        let includes_WW = postClassification.includes('WW');
+                        // If ACT is selected, include posts with WW, CC, or ACT
+                        if (filter.classifications.includes('ACT')) {
+                            //ret = ['WW', 'CC', 'ACT'].includes(postClassification);
+                            ret = includes_ACT || includes_CC || includes_WW;
+                            console.log(`Matches ACT ${ret}`);
+                            if ( ret ){
+                                return ret;
+                            }
+                        }
+
+                        // If CC is selected, only include posts with CC (override other selections)
+                        if (filter.classifications.includes('CC')) {
+                            ret = includes_CC;
+                            if ( ret ){
+                                console.log(`Matches CC ${ret}`);
+                                return ret;
+                            }
+                        }
+
+                        // If WW is selected, only include posts with WW (override other selections)
+                        if (filter.classifications.includes('WW')) {
+                            ret = includes_WW;
+                            if ( ret ){
+                                console.log(`Matches WW ${ret}`);
+                                return ret;
+                            }
+                        }
+
+                        // If Non-ACT is selected, include posts without WW, CC, or ACT
+                        if (filter.classifications.includes('NONE')) {
+                            ret = !( includes_ACT || includes_WW || includes_CC);
+                            if ( ret ){
+                                console.log(`Matches NONE ${ret}`);
+                                return ret;
+                            }
+                        }
+
+                        // Default: include the post if no specific rule applies
+                        // if no rule applies reject the post.
+                        return false;    
+                    });
+                }
+            } else {
+                for(let name in filter){
+                    if ( name != 'categories' && name != 'search' && name != 'sortBy' 
+                        && name != 'sortOrder' && name != 'classifications'){
+                        console.log(filteredPosts);
+                        if ( Array.isArray(filter[name])){
+                            filteredPosts = filteredPosts.filter(post => {
+                                //console.log('post: ' + JSON.stringify(post));
+                                return post[name].length > 0 && post[name].some(target => filter[name].includes(target));
+                            });
+                        } else {
+                            filteredPosts = filteredPosts.filter(post => {
+                                return post[name] === filter[name];
+                            });
+                        }
+//                        console.log(name + ' reduced posts to ' + filteredPosts.length);
                     }
-                    console.log(name + ' reduced posts to ' + filteredPosts.length);
                 }
             }
         }
@@ -587,6 +674,7 @@ console.log('Filtered posts: ' + filteredPosts.length);
     function sortposts(posts, filter) {
         // Sort posts based on the selected criteria
         if (filter.sortBy && filter.sortOrder) {
+            //console.log(`Have filter ${JSON.stringify(filter)} sorting posts ${JSON.stringify(posts,null,2)}}`);
             posts.sort((a, b) => {
                 let aValue, bValue;
                 switch (filter.sortBy) {
@@ -616,7 +704,18 @@ console.log('Filtered posts: ' + filteredPosts.length);
                         }
                         break;
                     default:
-                        if ( a.date && b.date ){
+                        if ( posttype === 'event'){
+                            if ( a.from ){
+                                aValue = a.from;
+                            } else if ( a.acf ){
+                                aValue = formDate(a.acf.from);
+                            }
+                            if ( b.from ){
+                                bValue = b.from;
+                            } else if ( b.acf ) {
+                                bValue = formDate(b.acf.from);
+                            }
+                        } else if ( a.date && b.date ){
                             aValue = new Date(a.date).toISOString();
                             bValue = new Date(b.date).toISOString();
                             return bValue > aValue ? 1 : -1;
@@ -627,7 +726,20 @@ console.log('Filtered posts: ' + filteredPosts.length);
                 }
                 return filter.sortOrder === 'asc' ? (aValue > bValue ? 1 : -1) : (bValue > aValue ? 1 : -1);
             });
+        } else if ( posttype === 'event' ){
+  //          console.log(`Have event sorting posts ${JSON.stringify(posts,null,2)}`);
+            posts.sort((a,b) => {
+          //      console.log(`a: ${JSON.stringify(a)} b: ${JSON.stringify(b)}`);
+                if ( a.from && b.from ){
+                    let aValue = new Date(a.from).toISOString();
+                    let bValue = new Date(b.from).toISOString();
+                    return aValue > bValue ? 1 : -1;
+                } else {
+                    return a.id < b.id ? 1 : -1;
+                }
+            });
         } else {
+    //        console.log(`Default sort for posts ${JSON.stringify(posts,null,2)}`);
             posts.sort((a,b) => {
                 if ( a.date && b.date ){
                     let aValue = new Date(a.date).toISOString();
@@ -673,13 +785,18 @@ console.log('Filtered posts: ' + filteredPosts.length);
     }
     function seteventdates(posts, sub_index_entries){
         for(i = 0; i < posts.length; i++){
-            if ( posts[i].acf.interval_type && posts[i].acf.interval_type !== 'none'){
-                let item = sub_index_entries[posts[i].id];
-                console.log(i, 'recurring event: ', posts[i].id, ' item: ', item);
-                if ( item ){
-                    posts[i].acf.from = item.from.toISOString();
-                    posts[i].acf.to = item.to.toISOString();
+            let item = sub_index_entries[posts[i].id];
+            if ( item ){
+                if ( posts[i].acf.interval_type && posts[i].acf.interval_type !== 'none'){
+ //                   console.log(`${i} recurring event: ${posts[i].id} item: ${item}`);
+                    if ( item ){
+                        posts[i].acf.from = item.from.toISOString();
+                        posts[i].acf.to = item.to.toISOString();
+                    }
+
                 }
+                posts[i].from = item.from;
+                posts[i].to = item.to;
             }
         }
         return posts;
@@ -700,14 +817,14 @@ console.log('Filtered posts: ' + filteredPosts.length);
             sub_select_list = select_list;
         } else {
             for(let item of select_list){
-                console.log('item[' + fieldname + ' ]: ' + item[fieldname]);
+   //             console.log('item[' + fieldname + ' ]: ' + item[fieldname]);
                 if ( item[fieldname] === first_filter_control.value ){
                     sub_select_list.push(item);
                 }
             }
         }
         let allcount = sub_select_list.length;
-        console.log('allcount= ' + allcount);
+    //    console.log('allcount= ' + allcount);
         for(let custom_filter_control of custom_filter_controls){
             let options = custom_filter_control.querySelectorAll('option');
             let fieldname = custom_filter_control.getAttribute('id');
@@ -752,10 +869,10 @@ console.log('Filtered posts: ' + filteredPosts.length);
         // which stops the first page being displayed twice when the first filter is applied.
         morepostsDiv.style.display = 'none';       
         subindex = filterCategory(index, filter);
-        console.log('After filterCategory, subindex length: ', subindex);
+        console.log(`After filterCategory, subindex length: , ${JSON.stringify(subindex, null, 2)}`);
         //console.log('Category filtered index length: ' + subindex.length + ' typeof(subindex): ' + typeof(subindex));
         subindex = sortposts(subindex, filter);
-        console.log('After sortposts subindex: ', subindex);
+    //    console.log(`After sortposts subindex , ${subindex}`);
         //console.log('subindex length: ' + subindex.length);
         if ( subindex.length < 30 && filter.sortBy === 'author'){
             let authors = [];
@@ -763,14 +880,14 @@ console.log('Filtered posts: ' + filteredPosts.length);
                 let author = getAuthorName(sub, true);
                 authors.push(author);
             }
-            console.log('sub authors: ', authors);
+    //        console.log('sub authors: ', authors);
         }
         if ( posttype !== 'event' && posttype !== 'posts' && posttype !== 'team' ){
             show_custom_counts(subindex);
         }
         fetchbusy = 0;
         sessionStorage.setItem('SELECT_LIST', JSON.stringify(subindex));
-        console.log('Saving SELECT_LIST in session Storage: ', subindex);
+   //     console.log('Saving SELECT_LIST in session Storage: ', subindex);
         start_page = 0;
         page = 1;
         if ( subindex.length === 0 ) {
@@ -829,30 +946,21 @@ console.log('Filtered posts: ' + filteredPosts.length);
         //totalPages = response.headers.get('X-WP-TotalPages');
         //console.log('totalPages:', totalPages);
         let posts = await response.json();
+        console.log('Candidate posts: ' + posts.length);
         if (posts.length === 0) {
             return; // No more posts to fetch
         }
-        console.log('SubIDs: ', subids);
+   //     console.log(`SubIDs:  ${subids}`);
         posts = sortByRequestedIdOrder(posts, subids); 
-        console.log('Candidate posts: ' + posts.length);
-        let ids = [];
-        for(let post of posts){
-            ids.push(post.id);
-        }
-        console.log('back from sortByRequestedIdOrder posts in order: ',posts);
         if ( posttype === 'event'){
-            console.log('about to call seteventdates sub_index_entries: ', sub_index_entries);
+            //console.log(`about to call seteventdates sub_index_entries: ${JSON.stringify(sub_index_entries,null,2)}`);
             posts = seteventdates(posts, sub_index_entries);
         }
         posts = sortposts(posts, filter);
-        ids = [];
-        for(let post of posts){
-            ids.push(post.id);
-        }
-        console.log('back from sortposts, posts in order: ',posts);
+   //     console.log('back from sortposts, posts in order: ',posts);
         console.log('Fetched posts:', posts.length);
         allposts = allposts.concat(posts);
-        console.log(`Fetched page ${page} of posts, total count: ${allposts.length}`);
+   //     console.log(`Fetched page ${page} of posts, total count: ${allposts.length}`);
         if ( selectedCount ){
             selectedCount.textContent = allposts.length;
         }
@@ -905,7 +1013,7 @@ console.log('Filtered posts: ' + filteredPosts.length);
             displaybusy = true;
             while ( lastpost < allposts.length){
                 let post = allposts[lastpost];
-                console.log('Adding post: ' + post.id);
+     //           console.log('Adding post: ' + post.id);
                 const postPanel = createPostPanel(post);
                 postGridContainer.appendChild(postPanel);
                 lastpost++;
@@ -977,7 +1085,17 @@ console.log('Filtered posts: ' + filteredPosts.length);
             await fetchFilteredPosts(postindex, filter);
         });
     }
-
+    if (  event_classifications ) {
+        for(const event_classification of event_classifications){
+            event_classification.addEventListener('change', async function(){
+                //await buildEventIndex();
+                console.log(`Changed ${event_classification.name}`);
+                await stopfetch();
+                filter = getFilterObject();
+                await fetchFilteredPosts(postindex, filter);
+            });
+        }
+    }
     function addMonths(dt, mon){
         let y = dt.getFullYear();
         let m = dt.getMonth();
@@ -1000,7 +1118,7 @@ console.log('Filtered posts: ' + filteredPosts.length);
         postindex = [];
         do {
             const apiUrl = `${restUrl}?_fields=id,acf&per_page=100&page=${page}`;
-            console.log('Building index from:', apiUrl);
+    //        console.log('Building index from:', apiUrl);
             try {
                 const response = await fetch(apiUrl);
                 if (!response.ok) {
@@ -1017,14 +1135,23 @@ console.log('Filtered posts: ' + filteredPosts.length);
                 for(const post of posts){
                     let from = formDate(post.acf.from);
                     let to = formDate(post.acf.to);
-                    let classification = post.acf.classification;
+                    let classification = post.acf.classification || [];
+                    // Ensure classification is always an array
+                    if (!Array.isArray(classification)) {
+                        classification = [classification];
+                    }
+                    // Trim each value in the array (if they are strings)
+                    classification = classification.map(c => String(c).trim());
+
                     let id = post.id;
                     if ( post.acf ){
                         if ( post.acf.interval_type && post.acf.interval_type != 'none'){
+                            //console.log(`post.acf: ${JSON.stringify(post.acf,null,2)}`);
                             // event is repeated
                             let interval_end = null;
-                            if ( post.acf.interval_end ){
-                                interval_end = new Date(post.acf.interval);
+                            if ( post.acf.interval_enddate && post.acf.interval_enddate.length > 0){
+                                interval_end = new Date(post.acf.interval_enddate);
+                                //console.log(`interval_end: ${interval_end}`);
                             }
                             if ( (interval_end && interval_end > from) || interval_end === null){
                                 // wind from and to dates forward until
@@ -1038,7 +1165,8 @@ console.log('Filtered posts: ' + filteredPosts.length);
                                 let t = post.acf.interval_type;
                                 let v = post.acf.interval_value;
                                 if ( v ){
-                                    while(from < window_start){
+                                    while(to< window_start && 
+                                        (interval_end === null || (interval_end && from < interval_end))){
                                         let mult = v;
                                         if ( t === 'month'){
                                             from = addMonths(from, mult);
@@ -1054,7 +1182,11 @@ console.log('Filtered posts: ' + filteredPosts.length);
                                 }
                                 item.from = from;
                                 item.to = to;
-                                postindex.push(item);
+                                if ( to > window_start && 
+                                    (interval_end === null || (interval_end && from < interval_end))){
+                                    //console.log(`>>index to: ${to} from: ${from} interval_end: ${interval_end} window_start:${window_start}`)
+                                    postindex.push(item);
+                                }
                             }
                         } else {
                             // event is single
@@ -1080,7 +1212,7 @@ console.log('Filtered posts: ' + filteredPosts.length);
                 break;
             }
         } while(page <= totalPages);
-        console.log('Index built successfully');
+      //  console.log(`buildEventIndex built successfully ${JSON.stringify(postindex,null,2)}`);
         return postindex;
     }
     if (typeof actPostsData !== 'undefined' && actPostsData.post_type != '') {
