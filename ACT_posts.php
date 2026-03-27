@@ -11,7 +11,15 @@
  * Text Domain: act-posts
  * Domain Path: /languages
  */
-
+/*********************************************************************************************************
+ * 
+ *  BEWARE
+ *  sometimes classification is given the label category, because some people cannot deal with
+ *  the use of these near synonyms. The reaspn for preferring to keep the variable name classification
+ *   is that the term category is a taxonomy used exclusively by posts, from a software point of
+ *   view it is better to use a differenent variable name ror a differerent variable.
+ * 
+  **************************************************************************************** */
 // Exit if accessed directly.
 if ( ! defined( 'ABSPATH' ) ) {
     exit;
@@ -75,12 +83,29 @@ class ACT_Posts_Plugin {
      * @var array
      */
     private $current_shortcode_atts = array();
-    /**
+    /*
+     * Definition of event classifications
+     */
+    private static $classifications;
+    public static function init_classifications() {
+        self::$classifications = array();
+        // Example: Add some objects to the array
+        self::$classifications[] = (object)['id' => 'ACT', 'name' => 'ACT Event'];
+        self::$classifications[] = (object)['id' => 'NONE','name' => 'Other Host'];
+ //       self::$classifications[] = (object)['id' => 'WW', 'name' => 'ACT Wildlife Wardens'];
+ //       self::$classifications[] = (object)['id' => 'CC', 'name' => 'ACT Carbon Cutters'];
+    }
+
+    public static function getClassifications() {
+        return self::$classifications;
+    }
+    /**class ACT_Posts_Plugin 
      * Constructor.
      */
     public function __construct() {
         add_action( 'init', array( $this, 'register_shortcode' ) );
         $this->register_ajax_actions(); // <-- Add this line
+        self::init_classifications();
     }
 
     /**
@@ -90,6 +115,9 @@ class ACT_Posts_Plugin {
         add_shortcode( 'act_posts', array( $this, 'render_act_posts_grid_shortcode' ) );
         add_shortcode( 'act_posts_previous', array( $this, 'act_post_previous_shortcode' ) );
         add_shortcode( 'act_posts_next', array( $this, 'act_post_next_shortcode' ) );
+        add_shortcode( 'event_acf_form', array( $this, 'event_acf_form_shortcode') );
+        add_filter('default_content', array( $this, 'add_default_event_acf_form_shortcode'), 10, 2);
+//error_log('Shortcodes registered');
     }
     /**
      * Executes a specific SQL query to get a count of published posts per category.
@@ -420,7 +448,7 @@ if ( $results === null ){
                     <label for="act-posts-category-select"><?php esc_html_e( 'Category:', 'act-posts' ); ?></label>
                 </td>
                 <td>
-                    <select id="act-posts-category-select" multiple size="6">
+                    <select id="act-posts-category-select" > <!-- removed multiple size="6" -->
                         <option value=""
                             <?php 
                             // Check if no categories are selected initially then all categories is selected
@@ -483,13 +511,42 @@ if ( $results === null ){
      */
     private function show_event_controls( $initial_window_start_html, $prompt) {
         ?>
-        <div class="act-event-controls">
-            <div class="date-time-filter">
-                <label for="event-window-start"><?php esc_html_e( $prompt, 'act-posts' ); ?></label>
-                <input type="datetime-local" id="event-window-start"
-                       value="<?php echo esc_attr( $initial_window_start_html ); ?>">
-            </div>
-        </div>
+        <table class="act-event-controls">
+            <tr class="date-time-filter">
+                <td for="event-window-start"><?php esc_html_e( $prompt, 'act-posts' ); ?></td>
+                <td><input type="datetime-local" id="event-window-start"
+                       value="<?php echo esc_attr( $initial_window_start_html ); ?>" />
+                </td>
+            </tr>
+           <tr class="classification-filter">
+                <td>
+                    <label for="classification-select"><?php esc_html_e( 'Category:', 'default'); ?></label>
+                </td>
+                <td>
+                    <select id="classification-select" >
+                        <option value="ALL"
+                            <?php 
+                            // Check if no categories are selected initially then all categories is selected
+                            if ( empty( $initial_classifications_ids ) ) {
+                                echo 'selected'; 
+                            }
+                            ?>
+                            ><?php esc_html_e( 'All Categories ') ?> 
+                            (<span class="classification-count" data-term-id="ALL" ></span>)
+                        </option>
+                        <?php
+                            foreach ( self::$classifications as $classification_obj ) {https://actionclimateteignbridge.org/wp-admin/post.php?post=11025&action=edit
+                                $selected = '';
+                                echo '<option value="' . esc_attr( $classification_obj->id ) . '" ' . $selected . '>' 
+                                . esc_html( $classification_obj->name ) 
+                                . ' (<span class="classification-count" data-term-id="' . esc_attr($classification_obj->id) . '">'
+                                . '</span>)</option>';
+                            }
+                        ?>
+                    </select>
+                </td>
+            </tr>
+        </table>
         <?php
     }
     /**
@@ -513,9 +570,9 @@ if ( $results === null ){
                 echo '<td><label for="'.$name.'" >'.$prompt.'</label></td>';
                 $choices = $field['choices'];
                 echo '<td><select id="'.$name.'" class="custom-filter-select" ';
-                if ( $field['multiple'] ){
-                    echo ' multiple size="6" ';
-                }
+                //if ( $field['multiple'] ){
+                //    echo ' multiple size="6" ';
+                //}
                 echo '>';
                 //
                 // In order to support counts in options, the option text needs to be
@@ -624,6 +681,32 @@ if ( $results === null ){
         $this->output_post_grid();
         return ob_get_clean(); // Return the buffered HTML
     }
+    public function event_acf_form_shortcode() {
+        global $post;
+error_log('posttype was '. get_post_type($post->ID));
+        if (get_post_type($post->ID) !== 'event') {
+            return '';
+        }
+
+        // Pass ACF data to JavaScript
+        $acf = array(
+            'from' => get_field('from', $post->ID),
+            'to' => get_field('to', $post->ID),
+            'location' => get_field('location', $post->ID),
+            'postcode' => get_field('postcode', $post->ID),
+            'interval_type' => get_field('interval_type', $post->ID),
+            'interval_value' => get_field('interval_value', $post->ID),
+            'interval_enddate' => get_field('interval_enddate', $post->ID),
+        );
+        $this->current_shortcode_atts = array(
+            'post_type'     => 'event',
+        );
+        $this->enqueue_scripts($this->current_shortcode_atts);
+        wp_localize_script('act-posts-script', 'eventAcfData', $acf);
+
+        // Frontend HTML (will be populated by JavaScript)
+        return '<div class="event-details" id="event-details-container"></div>';
+    }
     private function render_team_grid_shortcode( $atts ) {
         // Placeholder for future team-specific shortcode rendering
         $atts = shortcode_atts( array(
@@ -652,6 +735,13 @@ if ( $results === null ){
         $this->output_post_grid();
         return ob_get_clean(); // Return the buffered HTML
     }
+    function add_default_event_acf_form_shortcode($content, $post) {
+        if ($post->post_type === 'event') {
+            $content = '[event_acf_form]';
+        }
+        return $content;
+    }
+
     private function render_custom_grid_shortcode( $post_type, $atts ) {
         // Placeholder for future custom post type-specific shortcode rendering
         // Parse shortcode attributes (e.g., to set default category, sort options, excerpt length)
@@ -806,6 +896,7 @@ if ( $results === null ){
      * Enqueue plugin scripts and styles.
      */
     private function enqueue_scripts($atts) {
+        //error_log('In enqueue_scripts');
         // Enqueue CSS
         wp_enqueue_style(
             'act-posts-style',

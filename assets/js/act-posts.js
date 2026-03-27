@@ -1,4 +1,5 @@
- // Ensure the DOM is fully loaded before running script
+console.log(`running act-posts.js`);
+// Ensure the DOM is fully loaded before running script
 document.addEventListener('DOMContentLoaded', async function() {
     // Get localized data from PHP
     const restUrl = actPostsData.rest_url;
@@ -30,8 +31,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     const selectedCount = document.getElementById('act-posts-selected');
     const eventWindowStart = document.getElementById('event-window-start');
     const custom_filter_controls = document.querySelectorAll('.custom-filter-select');
-    const event_classifications = document.querySelectorAll('.event-classification');
-console.log(`event_classifications: ${event_classifications}`);
+//    const event_classifications = document.querySelectorAll('.event-classification');
+//console.log(`event_classifications: ${event_classifications}`);
+    const classification_select = document.getElementById('classification-select');
 
     const morepostsDiv = document.getElementById('act-posts-more');
     const loadMoreButton = document.getElementById('act-posts-load-more-button');
@@ -93,11 +95,10 @@ console.log(`event_classifications: ${event_classifications}`);
     */
     function getSelectedClassifications() {
         const selected = [];
-        if ( event_classifications ){
-            for (let classification of event_classifications) {
-                if (classification.checked === true) {
-                    let name = classification.name;
-                    selected.push(name);
+        if ( classification_select ){
+            for (let option of classification_select.options) {
+                if (option.selected && option.value !== '') {
+                    selected.push(option.value);
                 }
             }
         }
@@ -328,11 +329,15 @@ console.log(`event_classifications: ${event_classifications}`);
         return d.toLocaleString('EN-GB', options);
     }
     function formDate(str){
-        let dstr = str.replace(' ','T');
-        return new Date(dstr);
+        if ( typeof(str) === 'string'){
+            let dstr = str.replace(' ','T');
+            return new Date(dstr);
+        }
+        return new Date(str);
     }
-    function eventpanelhtml(postLink, featuredImageHtml, postTitle, summaryContent, acf){
+    function form_timeline(acf){
         timeline = '';
+        console.log(`typeof acf.from ${typeof(acf.from)} to ${typeof(acf.to)}`);
         let from = formDate(acf.from);
         let to = formDate(acf.to);
         timeline += formatHHMM(from) + ' to ' + formatHHMM(to);
@@ -347,10 +352,18 @@ console.log(`event_classifications: ${event_classifications}`);
                 timeline += ' until ' + formatDate(d);
             }
         }
+        return timeline;
+    }
+    function form_location(acf){
         let location = acf.location;
         if ( acf.postcode ){
             location += ' ' + acf.postcode;
         }
+        return location;
+    }
+    function eventpanelhtml(postLink, featuredImageHtml, postTitle, summaryContent, acf){
+        let timeline = form_timeline(acf);
+        let location = form_location(acf);
         panelHtmlString = `
             <div class="post-panel">
                 <a href="${postLink}">
@@ -482,6 +495,43 @@ console.log(`event_classifications: ${event_classifications}`);
         tempContainer.innerHTML = panelHtmlString.trim(); // .trim() to remove any leading/trailing whitespace
         return tempContainer.firstChild; // Return the actual .post-panel div element
     }
+     // Render event details if eventAcfData is available
+    function renderEventDetails() {
+        console.log(`renderEventDetails called`);
+        if (typeof eventAcfData === 'undefined') {
+            console.log('eventAcfData is not defined');
+            return;
+        }
+        if (!eventAcfData) {
+            console.log(`eventAcfData not set`);
+            return;
+        }
+        console.log(`eventAcfData: ${JSON.stringify(eventAcfData,null,2)}`);
+        const container = document.getElementById('event-details-container');
+        if (!container) {
+            console.log(`container not found`);
+            return;
+        }
+
+        // Use adjust_acf_dates to get adjusted dates if needed
+        const adjusted_dates = adjust_acf_dates(eventAcfData, initial_window_start);
+        console.log(`adjusted_dates: ${JSON.stringify(adjusted_dates, null, 2)}`);
+        const acf_data_to_use = adjusted_dates ? { ...eventAcfData, from: adjusted_dates.from, to: adjusted_dates.to } : eventAcfData;
+
+        // Format timeline and location
+        const timeline = form_timeline(acf_data_to_use);
+        const location = form_location(acf_data_to_use);
+
+        // Render to the container
+        container.innerHTML = `
+            <div class="event-details-content">
+                <p><strong>When:</strong> ${timeline}</p>
+                <p><strong>where:</strong> ${location}</p>
+            </div>
+        `;
+    }
+
+    renderEventDetails();
     /**
      * Fetches all users' display names and IDs from the WordPress REST API
      * and returns them as a lookup table.
@@ -569,48 +619,19 @@ console.log('Filter: ' , filter);
                             return true;
                         }
 //console.log(`post.classification was ${post.classification}`);
-                        const postClassification = post.classification;// Assuming the ACF field is stored in post.acf.classification
-console.log(`Postclassification: ${postClassification}`);
-                        let includes_ACT = postClassification.includes('ACT');
-                        let includes_CC = postClassification.includes('CC');
-                        let includes_WW = postClassification.includes('WW');
-                        // If ACT is selected, include posts with WW, CC, or ACT
-                        if (filter.classifications.includes('ACT')) {
-                            //ret = ['WW', 'CC', 'ACT'].includes(postClassification);
-                            ret = includes_ACT || includes_CC || includes_WW;
-                            console.log(`Matches ACT ${ret}`);
-                            if ( ret ){
+                        const post_classification = post.classification;// Assuming the ACF field is stored in post.acf.classification
+console.log(`Post_classification: ${post_classification} filter.classifications: ${filter.classifications}`);
+                        if ( filter.classifications.includes('ALL')){
+                            console.log('Filter was ALL');
+                            return true;
+                        }
+                        for(let post_class of post_classification){
+                            let ret = filter.classifications.includes(post_class);
+                            console.log(`Matches ${post_class} ${ret}`);
+                            if ( ret === true){
                                 return ret;
                             }
                         }
-
-                        // If CC is selected, only include posts with CC (override other selections)
-                        if (filter.classifications.includes('CC')) {
-                            ret = includes_CC;
-                            if ( ret ){
-                                console.log(`Matches CC ${ret}`);
-                                return ret;
-                            }
-                        }
-
-                        // If WW is selected, only include posts with WW (override other selections)
-                        if (filter.classifications.includes('WW')) {
-                            ret = includes_WW;
-                            if ( ret ){
-                                console.log(`Matches WW ${ret}`);
-                                return ret;
-                            }
-                        }
-
-                        // If Non-ACT is selected, include posts without WW, CC, or ACT
-                        if (filter.classifications.includes('NONE')) {
-                            ret = !( includes_ACT || includes_WW || includes_CC);
-                            if ( ret ){
-                                console.log(`Matches NONE ${ret}`);
-                                return ret;
-                            }
-                        }
-
                         // Default: include the post if no specific rule applies
                         // if no rule applies reject the post.
                         return false;    
@@ -1085,29 +1106,81 @@ console.log('Filtered posts: ' + filteredPosts.length);
             await fetchFilteredPosts(postindex, filter);
         });
     }
-    if (  event_classifications ) {
-        for(const event_classification of event_classifications){
-            event_classification.addEventListener('change', async function(){
-                //await buildEventIndex();
-                console.log(`Changed ${event_classification.name}`);
-                await stopfetch();
-                filter = getFilterObject();
-                await fetchFilteredPosts(postindex, filter);
-            });
-        }
+    if (  classification_select ) {
+        classification_select.addEventListener('change', async function() {
+            console.log('Search selection changed');
+            await stopfetch();
+            filter = getFilterObject();
+            console.log('Classification selection changed, filter:', filter);
+
+            await fetchFilteredPosts(postindex, filter);
+        });
     }
-    function addMonths(dt, mon){
-        let y = dt.getFullYear();
-        let m = dt.getMonth();
-        let d = dt.getDate();
-        let h = dt.getHours();
-        let min = dt.getMinutes();
-        m += mon;
-        while ( m > 11){
-            m -= 12;
-            y++;
+    /**
+     * Adjusts a date by a given interval (day, week, month, year).
+     * @param {Date} date - The original date.
+     * @param {string} intervalType - 'day', 'week', 'month', or 'year'.
+     * @param {number} intervalValue - The interval value (e.g., 2 for "every 2 weeks").
+     * @return {Date} - The adjusted date.
+     */
+    function adjust_date(date, intervalType, intervalValue) {
+        let adjusted_date = new Date(date);
+
+        switch (intervalType) {
+            case 'day':
+                adjusted_date.setDate(adjusted_date.getDate() + intervalValue);
+                break;
+            case 'week':
+                adjusted_date.setDate(adjusted_date.getDate() + (7 * intervalValue));
+                break;
+            case 'month':
+                adjusted_date.setMonth(adjusted_date.getMonth() + intervalValue);
+                break;
+            case 'year':
+                adjusted_date.setFullYear(adjusted_date.getFullYear() + intervalValue);
+                break;
         }
-        return new Date(y,m,d,h,min,0);
+
+        return adjusted_date;
+    }
+    function adjust_acf_dates(acf, window_start){
+        if ( !acf ){
+            return null;
+        }
+        if ( !window_start ){
+            window_start = new Date();
+        }
+        let from = formDate(acf.from);
+        let to = formDate(acf.to);
+        let interval_end = null;
+        let interval_type = acf.interval_type;
+        if ( interval_type && interval_type != 'none'){
+            if ( acf.interval_enddate && acf.interval_enddate.length > 0){
+                interval_end = new Date(acf.interval_enddate);
+            }
+            if (interval_end && interval_end <= from){
+                return null;
+            } 
+            let interval_value = acf.interval_value;
+            if ( interval_value ){
+                while(to< window_start && 
+                    (interval_end === null || (interval_end && from < interval_end))){
+                    from = adjust_date(from, interval_type, interval_value);
+                    to = adjust_date(to, interval_type, interval_value);
+                }
+            }
+        }
+        if (interval_end && from > interval_end){
+            return null;
+        }
+
+        if ( to <= window_start ){
+            return null;
+        } 
+        return {
+            from: from,
+            to: to
+        };
     }
     async function buildEventIndex(window_start_str){
         let window_start = new Date(window_start_str);
@@ -1133,8 +1206,8 @@ console.log('Filtered posts: ' + filteredPosts.length);
                 }
                 // filter posts
                 for(const post of posts){
-                    let from = formDate(post.acf.from);
-                    let to = formDate(post.acf.to);
+                    //let from = formDate(post.acf.from);
+                    //let to = formDate(post.acf.to);
                     let classification = post.acf.classification || [];
                     // Ensure classification is always an array
                     if (!Array.isArray(classification)) {
@@ -1145,65 +1218,20 @@ console.log('Filtered posts: ' + filteredPosts.length);
 
                     let id = post.id;
                     if ( post.acf ){
-                        if ( post.acf.interval_type && post.acf.interval_type != 'none'){
-                            //console.log(`post.acf: ${JSON.stringify(post.acf,null,2)}`);
-                            // event is repeated
-                            let interval_end = null;
-                            if ( post.acf.interval_enddate && post.acf.interval_enddate.length > 0){
-                                interval_end = new Date(post.acf.interval_enddate);
-                                //console.log(`interval_end: ${interval_end}`);
+                        let res = adjust_acf_dates(post.acf, window_start);
+                        if ( res ){
+                            item = {
+                                from: res.from,
+                                to: res.to,
+                                id: id,
+                                classification: classification
                             }
-                            if ( (interval_end && interval_end > from) || interval_end === null){
-                                // wind from and to dates forward until
-                                item = {
-                                    from: from,
-                                    to: to,
-                                    id: id,
-                                    classification: classification
-                                }
-                                console.log(item);
-                                let t = post.acf.interval_type;
-                                let v = post.acf.interval_value;
-                                if ( v ){
-                                    while(to< window_start && 
-                                        (interval_end === null || (interval_end && from < interval_end))){
-                                        let mult = v;
-                                        if ( t === 'month'){
-                                            from = addMonths(from, mult);
-                                            to = addMonths(to, mult);
-                                        } else {
-                                            if ( t === 'week'){
-                                                mult *= 7;
-                                            }
-                                            from = new Date(from.getTime() + mult * 24 * 3600 * 1000);
-                                            to = new Date(to.getTime() + mult * 24 * 3600 * 1000);
-                                        }
-                                    }
-                                }
-                                item.from = from;
-                                item.to = to;
-                                if ( to > window_start && 
-                                    (interval_end === null || (interval_end && from < interval_end))){
-                                    //console.log(`>>index to: ${to} from: ${from} interval_end: ${interval_end} window_start:${window_start}`)
-                                    postindex.push(item);
-                                }
-                            }
-                        } else {
-                            // event is single
-                            let to = new Date(post.acf.to);
-                            if ( to > window_start ) {
-                                item = {
-                                    from: from,
-                                    to: to,
-                                    id: id,
-                                    classification: classification
-                                }
-                                postindex.push(item);
-                            }
+                            postindex.push(item);
                         }
                     }
                 }
                 console.log('Fetched posts:', posts.length);
+
                 //postindex = postindex.concat(posts);
                 page++;
             } catch (error) {
@@ -1213,6 +1241,24 @@ console.log('Filtered posts: ' + filteredPosts.length);
             }
         } while(page <= totalPages);
       //  console.log(`buildEventIndex built successfully ${JSON.stringify(postindex,null,2)}`);
+        // Populate counts
+        if ( classification_select ){
+            for (let option of classification_select.options) {
+                if (option.value !== '') {
+                    let count = 0;
+                    if ( option.value === 'ALL'){
+                        count = postindex.length;
+                    }else {
+                        count = postindex.filter(item => item.classification.includes(option.value)).length;
+                    }
+                    // put count in span class classification-count
+                    const span = option.querySelector('.classification-count');
+                    if (span) {
+                        span.textContent = count;
+                    }
+                }
+            }
+        }
         return postindex;
     }
     if (typeof actPostsData !== 'undefined' && actPostsData.post_type != '') {
@@ -1224,3 +1270,4 @@ console.log('Filtered posts: ' + filteredPosts.length);
         fetchFilteredPosts(postindex, filter);
     }
 });
+console.log(`At 1273`);
