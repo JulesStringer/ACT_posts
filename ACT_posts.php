@@ -83,29 +83,12 @@ class ACT_Posts_Plugin {
      * @var array
      */
     private $current_shortcode_atts = array();
-    /*
-     * Definition of event classifications
-     */
-    private static $classifications;
-    public static function init_classifications() {
-        self::$classifications = array();
-        // Example: Add some objects to the array
-        self::$classifications[] = (object)['id' => 'ACT', 'name' => 'ACT Event'];
-        self::$classifications[] = (object)['id' => 'NONE','name' => 'Other Host'];
- //       self::$classifications[] = (object)['id' => 'WW', 'name' => 'ACT Wildlife Wardens'];
- //       self::$classifications[] = (object)['id' => 'CC', 'name' => 'ACT Carbon Cutters'];
-    }
-
-    public static function getClassifications() {
-        return self::$classifications;
-    }
     /**class ACT_Posts_Plugin 
      * Constructor.
      */
     public function __construct() {
         add_action( 'init', array( $this, 'register_shortcode' ) );
         $this->register_ajax_actions(); // <-- Add this line
-        self::init_classifications();
     }
 
     /**
@@ -510,8 +493,18 @@ if ( $results === null ){
      * @param string $prompt - events from prompt
      */
     private function show_event_controls( $initial_window_start_html, $prompt) {
-        ?>
-        <table class="act-event-controls">
+        $select_fields = $this->get_acf_select_fields_by_post_type('event');
+        //error_log('select_fields '.var_export($select_fields, true));
+        $select_field = null;
+        foreach($select_fields as $field ){
+            if ( $field['name'] === 'classification' ){
+                $select_field = $field;
+            }
+        }
+        $classifications = $select_field['choices'] ?? [];
+        //error_log(var_export($select_field, true));
+        //error_log(var_export($classifications, true));
+?>      <table class="act-event-controls" >
             <tr class="date-time-filter">
                 <td for="event-window-start"><?php esc_html_e( $prompt, 'act-posts' ); ?></td>
                 <td><input type="datetime-local" id="event-window-start"
@@ -520,28 +513,18 @@ if ( $results === null ){
             </tr>
            <tr class="classification-filter">
                 <td>
-                    <label for="classification-select"><?php esc_html_e( 'Category:', 'default'); ?></label>
+                    <label for="classification-select"><?php esc_html_e( $select_field['label']); ?></label>
                 </td>
                 <td>
                     <select id="classification-select" >
-                        <option value="ALL"
-                            <?php 
-                            // Check if no categories are selected initially then all categories is selected
-                            if ( empty( $initial_classifications_ids ) ) {
-                                echo 'selected'; 
-                            }
-                            ?>
-                            ><?php esc_html_e( 'All Categories ') ?> 
-                            (<span class="classification-count" data-term-id="ALL" ></span>)
-                        </option>
                         <?php
-                            foreach ( self::$classifications as $classification_obj ) {https://actionclimateteignbridge.org/wp-admin/post.php?post=11025&action=edit
-                                $selected = '';
-                                echo '<option value="' . esc_attr( $classification_obj->id ) . '" ' . $selected . '>' 
-                                . esc_html( $classification_obj->name ) 
-                                . ' (<span class="classification-count" data-term-id="' . esc_attr($classification_obj->id) . '">'
-                                . '</span>)</option>';
-                            }
+                        $option = '<option value="ALL" selected >All Categories(<span class="classification-count" data-term-id="ALL" ></span>)</option>';
+                        foreach( $classifications as $value => $label ) {
+                            $option .= '<option value="' . esc_attr($value). '" >';
+                            $option .= $label .'(<span class="classification-count" data-term-id="' . esc_attr($value). '"></span>)';
+                            $option .= '</option>';
+                        }
+                        echo $option;
                         ?>
                     </select>
                 </td>
