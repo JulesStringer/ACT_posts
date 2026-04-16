@@ -518,10 +518,11 @@ if ( $results === null ){
                 <td>
                     <select id="classification-select" >
                         <?php
-                        $option = '<option value="ALL" selected >All Categories(<span class="classification-count" data-term-id="ALL" ></span>)</option>';
+                        $option = '<option value="ALL" selected >All Categories()</option>';
                         foreach( $classifications as $value => $label ) {
                             $option .= '<option value="' . esc_attr($value). '" >';
-                            $option .= $label .'(<span class="classification-count" data-term-id="' . esc_attr($value). '"></span>)';
+                            //$option .= $label .'(<span class="classification-count" data-term-id="' . esc_attr($value). '"></span>)';
+                            $option .= $label .'()';
                             $option .= '</option>';
                         }
                         echo $option;

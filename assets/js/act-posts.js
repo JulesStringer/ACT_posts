@@ -102,6 +102,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 }
             }
         }
+        console.log(`selected: ${JSON.stringify(selected,null,2)}`)
         return selected;
     }
     /*
@@ -1182,6 +1183,7 @@ console.log('Filtered posts: ' + filteredPosts.length);
             to: to
         };
     }
+    let classification_options = null;
     async function buildEventIndex(window_start_str){
         let window_start = new Date(window_start_str);
         console.log('window_start: ', window_start.toISOString());
@@ -1243,6 +1245,12 @@ console.log('Filtered posts: ' + filteredPosts.length);
       //  console.log(`buildEventIndex built successfully ${JSON.stringify(postindex,null,2)}`);
         // Populate counts
         if ( classification_select ){
+            if ( classification_options === null){
+                classification_options = {};
+                for (let option of classification_select.options) {
+                    classification_options[option.value] = option.textContent;
+                }
+            }
             for (let option of classification_select.options) {
                 if (option.value !== '') {
                     let count = 0;
@@ -1252,10 +1260,8 @@ console.log('Filtered posts: ' + filteredPosts.length);
                         count = postindex.filter(item => item.classification.includes(option.value)).length;
                     }
                     // put count in span class classification-count
-                    const span = option.querySelector('.classification-count');
-                    if (span) {
-                        span.textContent = count;
-                    }
+                    let optionText = classification_options[option.value].replace('()', '(' + count + ')');
+                    option.textContent = optionText;
                 }
             }
         }
