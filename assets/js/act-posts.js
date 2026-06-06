@@ -527,7 +527,7 @@ document.addEventListener('DOMContentLoaded', async function() {
         container.innerHTML = `
             <div class="event-details-content">
                 <p><strong>When:</strong> ${timeline}</p>
-                <p><strong>where:</strong> ${location}</p>
+                <p><strong>Where:</strong> ${location}</p>
             </div>
         `;
     }
